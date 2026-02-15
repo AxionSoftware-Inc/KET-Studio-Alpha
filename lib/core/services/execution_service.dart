@@ -52,13 +52,17 @@ def table(title, rows):
 def text(content):
     viz("text", {"content": content})
 
-def save_png(fig, name="plot.png"):
+def plot(fig, name="plot.png", title=None):
     if not os.path.exists(".ket_viz"):
         os.makedirs(".ket_viz")
     path = os.path.join(".ket_viz", name)
     fig.savefig(path, bbox_inches='tight')
-    viz("image", {"path": path, "title": name})
+    viz("image", {"path": path, "title": title or name})
     return path
+
+def dashboard(histogram=None, matrix=None):
+    \"\"\"Combine histogram and matrix in one view\"\"\"
+    viz("quantum", {"histogram": histogram, "matrix": matrix})
 """;
 
       final launcherCode =

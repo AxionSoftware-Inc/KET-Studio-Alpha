@@ -128,12 +128,26 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
   }
 
   Widget _buildVizContent(VizData viz) {
-    final payload = viz.data;
+    var payload = viz.data;
     switch (viz.type) {
       case VizType.bloch:
         return _BlochSpherePainter(data: payload);
       case VizType.matrix:
-        return _MatrixHeatmap(data: payload);
+      case VizType.heatmap:
+        // Extract data if wrapped in {"data": ..., "title": ...}
+        final actualData = (payload is Map && payload.containsKey('data'))
+            ? payload['data']
+            : payload;
+        final title = (payload is Map && payload.containsKey('title'))
+            ? payload['title']
+            : null;
+        return Column(
+          children: [
+            if (title != null)
+              _SubHeader(title: title.toString().toUpperCase()),
+            Expanded(child: _MatrixHeatmap(data: actualData)),
+          ],
+        );
       case VizType.chart:
         return _SimpleChart(data: payload);
       case VizType.quantum:
@@ -150,8 +164,6 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
         return _TableDisplay(data: payload);
       case VizType.text:
         return _TextDisplay(data: payload);
-      case VizType.heatmap:
-        return _MatrixHeatmap(data: payload);
       default:
         return const Text("Unknown Visualization");
     }
