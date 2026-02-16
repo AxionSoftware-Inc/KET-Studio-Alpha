@@ -106,6 +106,12 @@ class TopBar extends StatelessWidget {
                               if (states.isHovered) return KetTheme.bgHover;
                               return Colors.transparent;
                             }),
+                            shape: WidgetStateProperty.all(
+                              const RoundedRectangleBorder(
+                                side: BorderSide.none,
+                                borderRadius: BorderRadius.zero,
+                              ),
+                            ),
                             padding: WidgetStateProperty.all(
                               const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -395,81 +401,124 @@ class StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 24,
-      color: KetTheme.accent,
-      child: Row(
-        children: [
-          // Toggle Terminal Button
-          HoverButton(
-            onPressed: () => layout.toggleBottomPanel(),
-            builder: (context, states) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                color: states.isHovered
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.transparent,
-                child: Row(
-                  children: [
-                    const Icon(
-                      FluentIcons.command_prompt,
-                      size: 12,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "TERMINAL",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        EditorService(),
+        ExecutionService().isRunning,
+      ]),
+      builder: (context, _) {
+        final editor = EditorService();
+        final exec = ExecutionService();
+        final activeFile = editor.activeFile;
 
-          const Spacer(),
+        return Container(
+          height: 24,
+          color: KetTheme.accent,
+          child: Row(
+            children: [
+              // 1. TERMINAL TOGGLE
+              HoverButton(
+                onPressed: () => layout.toggleBottomPanel(),
+                builder: (context, states) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    color: states.isHovered
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          FluentIcons.command_prompt,
+                          size: 11,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "TERMINAL",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
 
-          // STATUS INDICATORS
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Row(
-              children: [
+              const SizedBox(width: 10),
+
+              // 2. ACTIVE FILE PATH
+              if (activeFile != null)
                 Text(
-                  "UTF-8",
+                  activeFile.path.startsWith('/fake')
+                      ? activeFile.name
+                      : activeFile.path,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 11,
                   ),
                 ),
-                const SizedBox(width: 15),
-                Text(
-                  "Alpha v1.0.0",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+
+              const Spacer(),
+
+              // 3. CURSOR POSITION
+              if (activeFile != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text(
+                    "Ln ${editor.cursorLine}, Col ${editor.cursorColumn}",
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
                   ),
                 ),
-                const SizedBox(width: 15),
-                const Icon(
-                  FluentIcons.check_mark,
-                  size: 10,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  "Ready",
+
+              const Divider(direction: Axis.vertical),
+
+              // 4. EXECUTION STATUS
+              ValueListenableBuilder<bool>(
+                valueListenable: exec.isRunning,
+                builder: (context, running, _) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        if (running) ...[
+                          const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: ProgressRing(strokeWidth: 1.5, value: null),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          running ? "Python Running" : "Ready",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(direction: Axis.vertical),
+
+              // 5. VERSION
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12.0),
+                child: Text(
+                  "Alpha v1.0.0",
                   style: TextStyle(color: Colors.white, fontSize: 11),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

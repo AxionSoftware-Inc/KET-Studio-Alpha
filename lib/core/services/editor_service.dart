@@ -15,6 +15,14 @@ class EditorService extends ChangeNotifier {
   final List<EditorFile> _files = [];
   int _activeFileIndex = -1;
   final ValueNotifier<bool> hasActiveFile = ValueNotifier(false);
+  int cursorLine = 1;
+  int cursorColumn = 1;
+
+  void updateCursorPosition(int line, int col) {
+    cursorLine = line;
+    cursorColumn = col;
+    notifyListeners();
+  }
 
   // GETTERS
   List<EditorFile> get files => _files;

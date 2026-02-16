@@ -15,21 +15,46 @@ class EditorWidget extends StatefulWidget {
 
 class _EditorWidgetState extends State<EditorWidget> {
   final EditorService _editorService = EditorService();
+  CodeController? _currentController;
 
   @override
   void initState() {
     super.initState();
     _editorService.addListener(_update);
-    // Auto-opening removed to allow Welcome Screen to show when files are empty
   }
 
   @override
   void dispose() {
+    _currentController?.removeListener(_updateCursor);
     _editorService.removeListener(_update);
     super.dispose();
   }
 
-  void _update() => setState(() {});
+  void _update() {
+    final newActive = _editorService.activeFile;
+    if (_currentController != newActive?.controller) {
+      _currentController?.removeListener(_updateCursor);
+      _currentController = newActive?.controller;
+      _currentController?.addListener(_updateCursor);
+    }
+    setState(() {});
+  }
+
+  void _updateCursor() {
+    final active = _editorService.activeFile;
+    if (active == null) return;
+
+    final selection = active.controller.selection;
+    final text = active.controller.text;
+
+    if (selection.isValid && selection.isCollapsed) {
+      int offset = selection.baseOffset;
+      List<String> lines = text.substring(0, offset).split('\n');
+      int line = lines.length;
+      int col = lines.last.length + 1;
+      _editorService.updateCursorPosition(line, col);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

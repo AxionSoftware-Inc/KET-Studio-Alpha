@@ -1,6 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import '../../core/theme/ket_theme.dart';
 import '../../core/services/editor_service.dart';
+import '../../core/services/command_service.dart';
+import '../templates/templates_service.dart';
 import '../../config/demo_content.dart';
 
 class WelcomeWidget extends StatelessWidget {
@@ -77,9 +79,7 @@ class WelcomeWidget extends StatelessWidget {
                           FluentIcons.fabric_open_folder_horizontal,
                           "Open Folder",
                           "Open an existing project",
-                          () {
-                            // Link to existing open folder logic if needed
-                          },
+                          () => CommandService().execute("file.openFolder"),
                         ),
                         _buildActionItem(
                           context,
@@ -96,7 +96,7 @@ class WelcomeWidget extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 40),
-                  // Recent Section (Can be expanded later)
+                  // Recent Section
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,6 +115,18 @@ class WelcomeWidget extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 40),
+
+              // Templates Section
+              _buildSectionHeader(FluentIcons.library, "QUANTUM TEMPLATES"),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: TemplateService.templates.map((tpl) {
+                  return _buildTemplateCard(tpl);
+                }).toList(),
               ),
 
               const SizedBox(height: 80),
@@ -219,6 +231,50 @@ class WelcomeWidget extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildTemplateCard(QuantumTemplate tpl) {
+    return HoverButton(
+      onPressed: () => TemplateService.useTemplate(tpl),
+      builder: (context, states) {
+        return Container(
+          width: 250,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: states.isHovered
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: states.isHovered
+                  ? KetTheme.accent.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.05),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(tpl.icon, size: 20, color: KetTheme.accent),
+              const SizedBox(height: 8),
+              Text(
+                tpl.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tpl.description,
+                style: TextStyle(color: KetTheme.textMuted, fontSize: 11),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
