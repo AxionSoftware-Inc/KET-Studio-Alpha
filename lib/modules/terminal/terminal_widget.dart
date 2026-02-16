@@ -42,7 +42,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
               Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: Colors.black)),
                   color: KetTheme.bgSidebar,
                 ),
@@ -81,7 +81,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Text(
                         TerminalService().logs[i],
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: KetTheme.textMain,
                           fontFamily: 'Consolas',
                           fontSize: 12,
@@ -97,7 +97,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
               Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: Colors.black)),
                   color: KetTheme.bgSidebar,
                 ),

@@ -6,6 +6,7 @@ import '../core/services/editor_service.dart';
 import '../core/services/execution_service.dart';
 import '../core/services/layout_service.dart';
 import '../core/services/file_service.dart';
+import '../modules/settings/settings_widget.dart';
 
 void setupCommands(BuildContext context) {
   final commands = CommandService();
@@ -146,6 +147,35 @@ void setupCommands(BuildContext context) {
     ),
   );
 
+  // --- EXPLORER / PROFESSIONAL COMMANDS ---
+  commands.registerCommand(
+    Command(
+      id: "file.reveal",
+      title: "Reveal in Explorer",
+      icon: FluentIcons.folder_open,
+      action: () {
+        final active = editor.activeFile;
+        if (active != null && !active.path.startsWith('/fake')) {
+          file.revealInExplorer(active.path);
+        }
+      },
+    ),
+  );
+
+  commands.registerCommand(
+    Command(
+      id: "file.copyPath",
+      title: "Copy Path",
+      icon: FluentIcons.copy,
+      action: () {
+        final active = editor.activeFile;
+        if (active != null && !active.path.startsWith('/fake')) {
+          file.copyPath(active.path);
+        }
+      },
+    ),
+  );
+
   // --- EDIT COMMANDS ---
   commands.registerCommand(
     Command(
@@ -238,6 +268,21 @@ void setupCommands(BuildContext context) {
               ),
             ],
           ),
+        );
+      },
+    ),
+  );
+
+  commands.registerCommand(
+    Command(
+      id: "settings.open",
+      title: "Settings",
+      icon: FluentIcons.settings,
+      shortcut: "Ctrl+,",
+      action: () {
+        showDialog(
+          context: context,
+          builder: (context) => const SettingsWidget(),
         );
       },
     ),

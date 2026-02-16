@@ -213,6 +213,15 @@ class TopBar extends StatelessWidget {
             },
           ),
 
+          // Settings Button
+          Tooltip(
+            message: "Settings (Ctrl+,)",
+            child: IconButton(
+              icon: const Icon(FluentIcons.settings, size: 14),
+              onPressed: () => CommandService().execute("settings.open"),
+            ),
+          ),
+
           const SizedBox(width: 8),
           const Divider(direction: Axis.vertical),
           const SizedBox(width: 8),
@@ -484,11 +493,7 @@ class PanelHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(panel.title.toUpperCase(), style: KetTheme.headerStyle),
-                const Icon(
-                  FluentIcons.more,
-                  color: KetTheme.textMain,
-                  size: 14,
-                ),
+                Icon(FluentIcons.more, color: KetTheme.textMain, size: 14),
               ],
             ),
           ),

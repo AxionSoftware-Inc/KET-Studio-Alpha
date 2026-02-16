@@ -568,7 +568,7 @@ class _SubHeader extends StatelessWidget {
       color: KetTheme.accent.withValues(alpha: 0.1),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.bold,
           color: KetTheme.accent,

@@ -69,7 +69,7 @@ class _EditorWidgetState extends State<EditorWidget> {
                                 ? Colors.white.withValues(alpha: 0.05)
                                 : Colors.transparent),
                       border: isActive
-                          ? const Border(
+                          ? Border(
                               top: BorderSide(color: KetTheme.accent, width: 2),
                             )
                           : Border(

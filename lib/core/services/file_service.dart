@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
@@ -107,7 +108,6 @@ class FileService extends ChangeNotifier {
     }
   }
 
-  // 4. Nomini o'zgartirish
   Future<void> renameEntity(String oldPath, String newName) async {
     final parentPath = File(oldPath).parent.path;
     final newPath = "$parentPath${Platform.pathSeparator}$newName";
@@ -116,5 +116,17 @@ class FileService extends ChangeNotifier {
     } else {
       await File(oldPath).rename(newPath);
     }
+  }
+
+  // 5. Reveal in Explorer (Windows)
+  Future<void> revealInExplorer(String path) async {
+    if (Platform.isWindows) {
+      await Process.run('explorer.exe', ['/select,', path]);
+    }
+  }
+
+  // 6. Copy Path to clipboard
+  Future<void> copyPath(String path) async {
+    await Clipboard.setData(ClipboardData(text: path));
   }
 }

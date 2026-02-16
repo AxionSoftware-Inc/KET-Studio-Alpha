@@ -218,7 +218,7 @@ class _FileTreeItemState extends State<FileTreeItem> {
                       Expanded(
                         child: Text(
                           name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: KetTheme.textMain,
                             fontSize: 12,
                           ),
