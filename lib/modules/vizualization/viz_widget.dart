@@ -16,6 +16,7 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
   DateTime? _runStartTime;
   bool _showNoOutputHint = false;
   Timer? _hintTimer;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
   void dispose() {
     VizService().removeListener(_refresh);
     _hintTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -50,6 +52,20 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
       _showNoOutputHint = false;
       _hintTimer?.cancel();
     }
+
+    // Auto-scroll logic safely
+    if (service.selectedEvent == null && _scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+
     setState(() {});
   }
 
@@ -78,7 +94,31 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
     VizService service,
   ) {
     if (event != null) {
-      return _buildVizContent(event);
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildVizCard(event, isSingle: true),
+            const SizedBox(height: 12),
+            Button(
+              child: const Text("View Full Session Stream"),
+              onPressed: () => service.selectEvent(null),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final currentSession = service.currentSession;
+    if (currentSession != null && currentSession.events.isNotEmpty) {
+      return ListView.separated(
+        controller: _scrollController,
+        itemCount: currentSession.events.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 20),
+        itemBuilder: (context, index) {
+          return _buildVizCard(currentSession.events[index]);
+        },
+      );
     }
 
     switch (status) {
@@ -91,58 +131,109 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
           service.currentSession?.errorMessage ?? "Unknown error",
         );
       case VizStatus.stopped:
-        return _buildIdleState(message: "Process Stopped.");
+        return _buildIdleState(message: "Process Finished.");
       default:
         return _buildIdleState();
     }
   }
 
-  Widget _buildIdleState({String? message}) {
-    return Center(
+  Widget _buildVizCard(VizEvent event, {bool isSingle = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: KetTheme.bgHeader.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            FluentIcons.waitlist_confirm,
-            size: 40,
-            color: KetTheme.textMuted.withValues(alpha: 0.2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(8),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _getIconForType(event.type),
+                  size: 12,
+                  color: KetTheme.accent,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  event.type.toString().split('.').last.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  event.timeStr,
+                  style: const TextStyle(fontSize: 8, color: Colors.grey),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            message ?? "No output yet. Run a script to see results.",
-            style: TextStyle(color: KetTheme.textMuted, fontSize: 13),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: _buildVizContent(event, isSingle: isSingle),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRunningState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const ProgressRing(),
-          const SizedBox(height: 20),
-          const Text(
-            "Running quantum script...",
-            style: TextStyle(fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _showNoOutputHint
-                ? "Running... (no visual output yet). Show logs in terminal if needed."
-                : "Visualizing data as it arrives via ket_viz protocol.",
-            style: TextStyle(color: KetTheme.textMuted, fontSize: 11),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error) {
-    return _ErrorDisplay(error: error);
+  Widget _buildVizContent(VizEvent event, {bool isSingle = false}) {
+    final payload = event.payload;
+    switch (event.type) {
+      case VizType.bloch:
+        return SizedBox(height: 250, child: _BlochSpherePainter(data: payload));
+      case VizType.matrix:
+      case VizType.heatmap:
+        final actualData = (payload is Map && payload.containsKey('data'))
+            ? payload['data']
+            : payload;
+        final title = (payload is Map && payload.containsKey('title'))
+            ? payload['title']
+            : null;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null)
+              _SubHeader(title: title.toString().toUpperCase()),
+            const SizedBox(height: 8),
+            _MatrixHeatmap(data: actualData),
+          ],
+        );
+      case VizType.chart:
+        return SizedBox(height: 200, child: _SimpleChart(data: payload));
+      case VizType.dashboard:
+        return _QuantumDashboard(data: payload);
+      case VizType.image:
+      case VizType.circuit:
+        return _ImageDisplay(
+          path: payload is Map
+              ? (payload['path'] ?? "").toString()
+              : payload.toString(),
+          title: payload is Map ? (payload['title'] ?? "").toString() : null,
+          isSingle: isSingle,
+        );
+      case VizType.table:
+        return _TableDisplay(data: payload);
+      case VizType.text:
+        return _TextDisplay(data: payload);
+      case VizType.error:
+        return _ErrorDisplay(error: payload.toString());
+      default:
+        return const Text("Unknown Visualization");
+    }
   }
 
   Widget _buildHeader(VizService service) {
@@ -159,13 +250,10 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
               color: KetTheme.accent,
             ),
             const SizedBox(width: 8),
-            Text(
-              service.selectedEvent!.type
-                  .toString()
-                  .split('.')
-                  .last
-                  .toUpperCase(),
-              style: KetTheme.headerStyle,
+            Text("DETAILED VIEW", style: KetTheme.headerStyle),
+            IconButton(
+              icon: const Icon(FluentIcons.back, size: 12),
+              onPressed: () => service.selectEvent(null),
             ),
           ] else if (service.status == VizStatus.running) ...[
             const SizedBox(
@@ -175,7 +263,7 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
             ),
             const SizedBox(width: 12),
             Text(
-              "EXECUTING...",
+              "STREAMING DATA...",
               style: KetTheme.headerStyle.copyWith(color: KetTheme.accent),
             ),
           ] else ...[
@@ -185,14 +273,13 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
               color: Colors.grey,
             ),
             const SizedBox(width: 8),
-            Text("QUANTUM VIZ", style: KetTheme.headerStyle),
+            Text("SESSION OUTPUT", style: KetTheme.headerStyle),
           ],
           const Spacer(),
-          if (service.sessions.isNotEmpty)
-            IconButton(
-              icon: const Icon(FluentIcons.delete, size: 12),
-              onPressed: () => service.clear(),
-            ),
+          IconButton(
+            icon: const Icon(FluentIcons.delete, size: 12),
+            onPressed: () => service.clear(),
+          ),
         ],
       ),
     );
@@ -202,250 +289,46 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
     switch (type) {
       case VizType.bloch:
         return FluentIcons.product;
-      case VizType.matrix:
-        return FluentIcons.table_group;
-      case VizType.chart:
-        return FluentIcons.line_chart;
       case VizType.dashboard:
         return FluentIcons.iot;
-      case VizType.image:
-      case VizType.circuit:
-        return FluentIcons.picture;
-      case VizType.table:
+      case VizType.matrix:
         return FluentIcons.table_group;
-      case VizType.text:
-        return FluentIcons.text_document;
-      case VizType.heatmap:
-        return FluentIcons.iot;
-      case VizType.error:
-        return FluentIcons.error;
+      case VizType.table:
+        return FluentIcons.list;
       default:
         return FluentIcons.info;
     }
   }
 
-  Widget _buildVizContent(VizEvent event) {
-    final payload = event.payload;
-    switch (event.type) {
-      case VizType.bloch:
-        return _BlochSpherePainter(data: payload);
-      case VizType.matrix:
-      case VizType.heatmap:
-        final actualData = (payload is Map && payload.containsKey('data'))
-            ? payload['data']
-            : payload;
-        final title = (payload is Map && payload.containsKey('title'))
-            ? payload['title']
-            : null;
-        return Column(
-          children: [
-            if (title != null)
-              _SubHeader(title: title.toString().toUpperCase()),
-            Expanded(child: _MatrixHeatmap(data: actualData)),
-          ],
-        );
-      case VizType.chart:
-        return _SimpleChart(data: payload);
-      case VizType.dashboard:
-        return _QuantumDashboard(data: payload);
-      case VizType.image:
-      case VizType.circuit:
-        return _ImageDisplay(
-          path: payload is Map
-              ? (payload['path'] ?? "").toString()
-              : payload.toString(),
-          title: payload is Map ? (payload['title'] ?? "").toString() : null,
-        );
-      case VizType.table:
-        return _TableDisplay(data: payload);
-      case VizType.text:
-        return _TextDisplay(data: payload);
-      case VizType.error:
-        return _ErrorDisplay(error: payload.toString());
-      default:
-        return const Text("Unknown Visualization");
-    }
-  }
-}
-
-class _ErrorDisplay extends StatelessWidget {
-  final String error;
-  const _ErrorDisplay({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D0000),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFF0000), width: 0.5),
+  Widget _buildIdleState({String? message}) {
+    return Center(
+      child: Text(
+        message ?? "Run a script to see results here.",
+        style: TextStyle(color: KetTheme.textMuted),
       ),
+    );
+  }
+
+  Widget _buildRunningState() {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(FluentIcons.error, color: Color(0xFFFF4444), size: 18),
-              const SizedBox(width: 8),
-              Text(
-                "PYTHON TERMINATED WITH ERROR",
-                style: TextStyle(
-                  color: const Color(0xFFFF4444),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              child: SelectableText(
-                error,
-                style: const TextStyle(
-                  color: Color(0xFFFF9999),
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(FluentIcons.info, size: 10, color: Colors.grey),
-              const SizedBox(width: 8),
-              const Text(
-                "Check Terminal for full stack trace. Press F5 to retry.",
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            ],
+          const ProgressRing(),
+          const SizedBox(height: 16),
+          Text(
+            _showNoOutputHint
+                ? "Running... (no visual output yet)"
+                : "Capturing quantum data...",
+            style: TextStyle(color: KetTheme.textMuted, fontSize: 12),
           ),
         ],
       ),
     );
   }
-}
 
-class _TableDisplay extends StatelessWidget {
-  final dynamic data;
-  const _TableDisplay({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = data?['title'] ?? "Data Table";
-    final rows = data?['rows'] as List? ?? [];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SubHeader(title: title.toString().toUpperCase()),
-        const SizedBox(height: 8),
-        Expanded(
-          child: ListView.builder(
-            itemCount: rows.length,
-            itemBuilder: (context, index) {
-              final row = rows[index] as List;
-              return Container(
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: row
-                      .map(
-                        (cell) => Text(
-                          cell.toString(),
-                          style: const TextStyle(
-                            color: KetTheme.textMain,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TextDisplay extends StatelessWidget {
-  final dynamic data;
-  const _TextDisplay({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = data?['content'] ?? data?['text'] ?? data.toString();
-    return SingleChildScrollView(
-      child: Text(
-        text.toString(),
-        style: const TextStyle(
-          color: KetTheme.textMain,
-          fontSize: 13,
-          fontFamily: 'monospace',
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageDisplay extends StatelessWidget {
-  final String path;
-  final String? title;
-  const _ImageDisplay({required this.path, this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    final file = File(path);
-    if (!file.existsSync()) {
-      return Center(
-        child: Text(
-          "Image not found: $path",
-          style: const TextStyle(color: Color(0xFFFF0000), fontSize: 10),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        if (title != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text(
-              title!,
-              style: const TextStyle(
-                color: KetTheme.textMain,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        Expanded(
-          child: InteractiveViewer(
-            child: Image.file(
-              file,
-              fit: BoxFit.contain,
-              key: ValueKey(
-                path +
-                    (file.existsSync()
-                        ? file.lastModifiedSync().toString()
-                        : ""),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  Widget _buildErrorState(String error) {
+    return _ErrorDisplay(error: error);
   }
 }
 
@@ -455,23 +338,221 @@ class _QuantumDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final histogram = data?['histogram'];
+    final hist = data?['histogram'];
     final matrix = data?['matrix'];
-
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (histogram != null) ...[
-          const _SubHeader(title: "HISTOGRAM / PROBABILITIES"),
+        if (hist != null) ...[
+          const _SubHeader(title: "HISTOGRAM"),
           const SizedBox(height: 8),
-          Expanded(flex: 2, child: _HistogramChart(data: histogram)),
-          const SizedBox(height: 16),
+          SizedBox(height: 120, child: _HistogramChart(data: hist)),
+          const SizedBox(height: 12),
         ],
         if (matrix != null) ...[
-          const _SubHeader(title: "QUANTUM STATE MATRIX"),
+          const _SubHeader(title: "DENSITY MATRIX"),
           const SizedBox(height: 8),
-          Expanded(flex: 3, child: _MatrixHeatmap(data: matrix)),
+          _MatrixHeatmap(data: matrix),
         ],
       ],
+    );
+  }
+}
+
+class _MatrixHeatmap extends StatelessWidget {
+  final dynamic data;
+  const _MatrixHeatmap({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    int rows = 0;
+    int cols = 0;
+    List<List<double>> matrix = [];
+
+    if (data is List) {
+      rows = (data as List).length;
+      cols = rows > 0 ? (data[0] as List).length : 0;
+      matrix = (data as List)
+          .map((r) => (r as List).map((c) => (c as num).toDouble()).toList())
+          .toList();
+    } else if (data is Map) {
+      final map = data as Map;
+      int maxIdx = 0;
+      map.keys.forEach((k) {
+        final p = k.toString().split(',');
+        if (p.length == 2) {
+          maxIdx = math.max(maxIdx, math.max(int.parse(p[0]), int.parse(p[1])));
+        }
+      });
+      rows = cols = maxIdx + 1;
+    }
+
+    if (rows == 0) return const Text("No matrix data");
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(rows, (r) {
+        return Row(
+          children: List.generate(cols, (c) {
+            double val = 0;
+            if (data is List) {
+              val = matrix[r][c];
+            } else {
+              val = (data["$r,$c"] ?? 0.0).toDouble();
+            }
+            return Expanded(
+              child: AspectRatio(aspectRatio: 1, child: _HeatBox(value: val)),
+            );
+          }),
+        );
+      }),
+    );
+  }
+}
+
+class _HeatBox extends StatelessWidget {
+  final double value;
+  const _HeatBox({required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(0.5),
+      decoration: BoxDecoration(
+        color: Color.lerp(
+          const Color(0xFF1A1A1A),
+          KetTheme.accent,
+          value.clamp(0.0, 1.0),
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Center(
+        child: Text(
+          value > 0.05 ? value.toStringAsFixed(1) : "",
+          style: const TextStyle(fontSize: 7, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _TableDisplay extends StatelessWidget {
+  final dynamic data;
+  const _TableDisplay({required this.data});
+  @override
+  Widget build(BuildContext context) {
+    final title = data?['title'] ?? "Table";
+    final rowsList = data?['rows'] as List? ?? [];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SubHeader(title: title.toString().toUpperCase()),
+        const SizedBox(height: 8),
+        Column(
+          children: rowsList.map((row) {
+            final cells = row as List;
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: cells
+                    .map(
+                      (c) => Expanded(
+                        child: Text(
+                          c.toString(),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _BlochSpherePainter extends StatelessWidget {
+  final dynamic data;
+  const _BlochSpherePainter({required this.data});
+  @override
+  Widget build(BuildContext context) {
+    double x = 0, y = 0, z = 0;
+    if (data is Map) {
+      if (data.containsKey('theta')) {
+        double theta = (data['theta'] ?? 0.0).toDouble();
+        double phi = (data['phi'] ?? 0.0).toDouble();
+        x = math.sin(theta) * math.cos(phi);
+        y = math.sin(theta) * math.sin(phi);
+        z = math.cos(theta);
+      } else {
+        x = (data['x'] ?? 0.0).toDouble();
+        y = (data['y'] ?? 0.0).toDouble();
+        z = (data['z'] ?? 0.0).toDouble();
+      }
+    }
+    return Center(
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: CustomPaint(
+          painter: BlochPainter(x: x, y: y, z: z),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistogramChart extends StatelessWidget {
+  final dynamic data;
+  const _HistogramChart({required this.data});
+  @override
+  Widget build(BuildContext context) {
+    if (data is! Map) return const SizedBox();
+    final map = data as Map;
+    final keys = map.keys.toList();
+    final values = map.values.map((v) => (v as num).toDouble()).toList();
+    final maxVal = values.isEmpty ? 1.0 : values.reduce(math.max);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(keys.length, (index) {
+        final ratio = values[index] / (maxVal == 0 ? 1 : maxVal);
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  values[index].toStringAsFixed(0),
+                  style: const TextStyle(fontSize: 8, color: Colors.grey),
+                ),
+                Container(
+                  height: ratio * 80,
+                  decoration: BoxDecoration(
+                    color: KetTheme.accent,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  keys[index].toString(),
+                  style: const TextStyle(fontSize: 8),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
     );
   }
 }
@@ -479,16 +560,12 @@ class _QuantumDashboard extends StatelessWidget {
 class _SubHeader extends StatelessWidget {
   final String title;
   const _SubHeader({required this.title});
-
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      decoration: BoxDecoration(
-        color: KetTheme.accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+      color: KetTheme.accent.withValues(alpha: 0.1),
       child: Text(
         title,
         style: const TextStyle(
@@ -501,184 +578,89 @@ class _SubHeader extends StatelessWidget {
   }
 }
 
-class _HistogramChart extends StatelessWidget {
-  final dynamic data;
-  const _HistogramChart({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    if (data is! Map) return const Text("Invalid Histogram Data");
-    final map = data as Map;
-    final keys = map.keys.toList();
-    final values = map.values.map((v) => (v as num).toDouble()).toList();
-    final maxVal = values.isNotEmpty ? values.reduce(math.max) : 1.0;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(keys.length, (index) {
-        final val = values[index];
-        final ratio = maxVal > 0 ? val / maxVal : 0.0;
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2.0),
-            child: Tooltip(
-              message: "${keys[index]}: $val",
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    val.toStringAsFixed(0),
-                    style: const TextStyle(fontSize: 7, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 2),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 500),
-                    height: ratio * 100,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          KetTheme.accent,
-                          KetTheme.accent.withValues(alpha: 0.3),
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    keys[index].toString(),
-                    style: const TextStyle(fontSize: 8, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-class _MatrixHeatmap extends StatelessWidget {
-  final dynamic data;
-  const _MatrixHeatmap({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    if (data is List) {
-      List matrix = data;
-      int rows = matrix.length;
-      int cols = rows > 0 ? (matrix[0] as List).length : 0;
-      return GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols > 1 ? cols : 2,
-          crossAxisSpacing: 2,
-          mainAxisSpacing: 2,
-        ),
-        itemCount: rows * cols,
-        itemBuilder: (context, index) {
-          int r = index ~/ cols;
-          int c = index % cols;
-          double val = (matrix[r][c] ?? 0.0).toDouble();
-          return _HeatBox(value: val);
-        },
-      );
-    } else if (data is Map) {
-      final map = data as Map;
-      int maxIdx = 0;
-      for (var k in map.keys) {
-        final parts = k.toString().split(',');
-        if (parts.length == 2) {
-          maxIdx = math.max(maxIdx, math.min(15, int.parse(parts[0])));
-          maxIdx = math.max(maxIdx, math.min(15, int.parse(parts[1])));
-        }
-      }
-      int size = maxIdx + 1;
-      return GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: size > 1 ? size : 2,
-          crossAxisSpacing: 1,
-          mainAxisSpacing: 1,
-        ),
-        itemCount: size * size,
-        itemBuilder: (context, index) {
-          int r = index ~/ size;
-          int c = index % size;
-          double val = (map["$r,$c"] ?? 0.0).toDouble();
-          return _HeatBox(value: val);
-        },
-      );
-    }
-    return const Text("Invalid Matrix Data");
-  }
-}
-
-class _HeatBox extends StatelessWidget {
-  final double value;
-  const _HeatBox({required this.value});
-
+class _ErrorDisplay extends StatelessWidget {
+  final String error;
+  const _ErrorDisplay({required this.error});
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Color.lerp(
-          const Color(0xFF121212),
-          KetTheme.accent,
-          value.clamp(0.0, 1.0),
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
-          width: 0.5,
-        ),
+        color: const Color(0xFF2D0000),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Center(
-        child: Text(
-          value > 0.1 ? value.toStringAsFixed(1) : "",
-          style: const TextStyle(fontSize: 6, color: Colors.white),
+      child: Text(
+        error,
+        style: const TextStyle(
+          color: Color(0xFFFF9999),
+          fontFamily: 'monospace',
+          fontSize: 12,
         ),
       ),
     );
   }
 }
 
-class _BlochSpherePainter extends StatelessWidget {
+class _TextDisplay extends StatelessWidget {
   final dynamic data;
-  const _BlochSpherePainter({required this.data});
-
+  const _TextDisplay({required this.data});
   @override
   Widget build(BuildContext context) {
-    double x = 0, y = 0, z = 0;
-    if (data is Map) {
-      if (data.containsKey('x')) {
-        x = (data?['x'] ?? 0.0).toDouble();
-        y = (data?['y'] ?? 0.0).toDouble();
-        z = (data?['z'] ?? 0.0).toDouble();
-      } else if (data.containsKey('theta')) {
-        double theta = (data['theta'] ?? 0.0).toDouble();
-        double phi = (data['phi'] ?? 0.0).toDouble();
-        x = math.sin(theta) * math.cos(phi);
-        y = math.sin(theta) * math.sin(phi);
-        z = math.cos(theta);
-      }
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double size =
-            math.min(constraints.maxWidth, constraints.maxHeight) * 0.8;
-        return Center(
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: CustomPaint(
-              painter: BlochPainter(x: x, y: y, z: z),
-            ),
+    final t = data?['content'] ?? data.toString();
+    return Text(
+      t,
+      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+    );
+  }
+}
+
+class _ImageDisplay extends StatelessWidget {
+  final String path;
+  final String? title;
+  final bool isSingle;
+  const _ImageDisplay({required this.path, this.title, this.isSingle = false});
+  @override
+  Widget build(BuildContext context) {
+    final f = File(path);
+    if (!f.existsSync()) return const Text("Image not found");
+    return Column(
+      children: [
+        if (title != null)
+          Text(
+            title!,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
           ),
-        );
-      },
+        SizedBox(
+          height: isSingle ? null : 300,
+          child: Image.file(f, fit: BoxFit.contain),
+        ),
+      ],
+    );
+  }
+}
+
+class _SimpleChart extends StatelessWidget {
+  final dynamic data;
+  const _SimpleChart({required this.data});
+  @override
+  Widget build(BuildContext context) {
+    if (data is! List) return const SizedBox();
+    List<double> pts = (data as List)
+        .map((e) => (e as num).toDouble())
+        .toList();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: pts
+          .map(
+            (p) => Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                height: (p * 180).clamp(5.0, 180.0),
+                color: KetTheme.accent,
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -688,83 +670,39 @@ class BlochPainter extends CustomPainter {
   BlochPainter({required this.x, required this.y, required this.z});
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    final paintCircle = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    final paintAxis = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5;
-    canvas.drawCircle(center, radius, paintCircle);
-    canvas.drawLine(
-      Offset(center.dx - radius, center.dy),
-      Offset(center.dx + radius, center.dy),
-      paintAxis,
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.1)
+        ..style = PaintingStyle.stroke,
     );
     canvas.drawLine(
-      Offset(center.dx, center.dy - radius),
-      Offset(center.dx, center.dy + radius),
-      paintAxis,
+      Offset(c.dx - r, c.dy),
+      Offset(c.dx + r, c.dy),
+      Paint()..color = Colors.white.withValues(alpha: 0.1),
     );
-    canvas.drawOval(
-      Rect.fromCenter(center: center, width: radius * 2, height: radius * 0.4),
-      paintAxis,
+    canvas.drawLine(
+      Offset(c.dx, c.dy - r),
+      Offset(c.dx, c.dy + r),
+      Paint()..color = Colors.white.withValues(alpha: 0.1),
     );
-    final vectorPaint = Paint()
-      ..color = KetTheme.accent
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
-    final vectorEnd = Offset(
-      center.dx + x * radius * 0.8,
-      center.dy - z * radius * 0.8,
+    canvas.drawLine(
+      c,
+      Offset(c.dx + x * r * 0.8, c.dy - z * r * 0.8),
+      Paint()
+        ..color = KetTheme.accent
+        ..strokeWidth = 2,
     );
-    canvas.drawLine(center, vectorEnd, vectorPaint);
-    canvas.drawCircle(vectorEnd, 4, Paint()..color = KetTheme.accent);
+    canvas.drawCircle(
+      Offset(c.dx + x * r * 0.8, c.dy - z * r * 0.8),
+      3,
+      Paint()..color = KetTheme.accent,
+    );
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class _SimpleChart extends StatelessWidget {
-  final dynamic data;
-  const _SimpleChart({required this.data});
-  @override
-  Widget build(BuildContext context) {
-    if (data is! List) return const Text("Invalid Chart Data");
-    List<double> points = (data as List)
-        .map((e) => (e as num).toDouble())
-        .toList();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: points
-          .map(
-            (p) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  height: math.max(10, p * 200),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        KetTheme.accent,
-                        KetTheme.accent.withValues(alpha: 0.4),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
 }

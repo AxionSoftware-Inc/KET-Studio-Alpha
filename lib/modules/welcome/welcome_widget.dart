@@ -1,0 +1,241 @@
+import 'package:fluent_ui/fluent_ui.dart';
+import '../../core/theme/ket_theme.dart';
+import '../../core/services/editor_service.dart';
+import '../../config/demo_content.dart';
+
+class WelcomeWidget extends StatelessWidget {
+  const WelcomeWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: KetTheme.bgCanvas,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Logo & Title
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/quantum.jpg',
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DemoContent.welcomeTitle,
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        DemoContent.welcomeSubtitle,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: KetTheme.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 60),
+
+              // Actions Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Start Section
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(FluentIcons.play, "START"),
+                        const SizedBox(height: 16),
+                        _buildActionItem(
+                          context,
+                          FluentIcons.page_add,
+                          "New File",
+                          "Create a new quantum script",
+                          () => EditorService().openFile("untitled.py", ""),
+                        ),
+                        _buildActionItem(
+                          context,
+                          FluentIcons.fabric_open_folder_horizontal,
+                          "Open Folder",
+                          "Open an existing project",
+                          () {
+                            // Link to existing open folder logic if needed
+                          },
+                        ),
+                        _buildActionItem(
+                          context,
+                          FluentIcons.test_beaker,
+                          "Try Demo",
+                          "See KET Studio in action",
+                          () => EditorService().openFile(
+                            "demo_visualizer.py",
+                            DemoContent.demoScript,
+                          ),
+                          isHighlight: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  // Recent Section (Can be expanded later)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(FluentIcons.history, "RECENT"),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No recent projects yet.\nStart by creating a new file.",
+                          style: TextStyle(
+                            color: KetTheme.textMuted,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 80),
+
+              // Footer
+              Container(
+                height: 1,
+                width: double.infinity,
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildFooterLink(
+                    "Learning Resources",
+                    FluentIcons.reading_mode,
+                  ),
+                  const SizedBox(width: 24),
+                  _buildFooterLink("Quantum Hardware", FluentIcons.iot),
+                  const Spacer(),
+                  Text(
+                    "Alpha v1.0.0",
+                    style: TextStyle(color: KetTheme.textMuted, fontSize: 11),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: KetTheme.accent),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap, {
+    bool isHighlight = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: HoverButton(
+        onPressed: onTap,
+        builder: (context, states) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: states.isHovered
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: isHighlight && !states.isHovered
+                  ? Border.all(color: KetTheme.accent.withValues(alpha: 0.3))
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 24,
+                  color: isHighlight ? KetTheme.accent : KetTheme.textMuted,
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isHighlight ? KetTheme.accent : Colors.white,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 11, color: KetTheme.textMuted),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFooterLink(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: KetTheme.textMuted),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            color: KetTheme.textMuted,
+            fontSize: 12,
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      ],
+    );
+  }
+}

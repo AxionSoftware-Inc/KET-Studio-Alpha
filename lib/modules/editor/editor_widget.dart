@@ -4,6 +4,7 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/services/editor_service.dart';
 import '../../core/theme/ket_theme.dart';
+import '../welcome/welcome_widget.dart';
 
 class EditorWidget extends StatefulWidget {
   const EditorWidget({super.key});
@@ -19,13 +20,7 @@ class _EditorWidgetState extends State<EditorWidget> {
   void initState() {
     super.initState();
     _editorService.addListener(_update);
-
-    if (_editorService.files.isEmpty) {
-      _editorService.openFile(
-        "main.py",
-        "print('Salom, Ket Studio!')\n\n# Kodingizni shu yerga yozing...",
-      );
-    }
+    // Auto-opening removed to allow Welcome Screen to show when files are empty
   }
 
   @override
@@ -39,27 +34,7 @@ class _EditorWidgetState extends State<EditorWidget> {
   @override
   Widget build(BuildContext context) {
     if (_editorService.files.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              FluentIcons.code,
-              size: 60,
-              color: Colors.white.withValues(alpha: 0.05),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Fayl ochish uchun Explorer'dan tanlang\nyoki Ctrl+N bosing",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.2),
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      );
+      return const WelcomeWidget();
     }
 
     final activeFile = _editorService.activeFile!;
@@ -69,7 +44,12 @@ class _EditorWidgetState extends State<EditorWidget> {
         // A. TAB BAR
         Container(
           height: 35,
-          color: KetTheme.bgActivityBar,
+          decoration: BoxDecoration(
+            color: KetTheme.bgActivityBar,
+            border: Border(
+              bottom: BorderSide(color: Colors.black.withValues(alpha: 0.2)),
+            ),
+          ),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _editorService.files.length,
@@ -83,16 +63,23 @@ class _EditorWidgetState extends State<EditorWidget> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: states.isHovered
-                          ? Colors.white.withValues(alpha: 0.05)
-                          : Colors.transparent,
+                      color: isActive
+                          ? KetTheme.bgCanvas
+                          : (states.isHovered
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.transparent),
                       border: isActive
                           ? const Border(
                               top: BorderSide(color: KetTheme.accent, width: 2),
                             )
-                          : null,
+                          : Border(
+                              bottom: BorderSide(
+                                color: Colors.black.withValues(alpha: 0.2),
+                              ),
+                            ),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           file.name.endsWith('.py')

@@ -200,7 +200,7 @@ void setupCommands(BuildContext context) {
         if (active != null) {
           await editor.saveActiveFile();
           if (!layout.isBottomPanelVisible) layout.toggleBottomPanel();
-          exec.runPython(active.path);
+          exec.runPython(active.path, content: active.controller.text);
         }
       },
     ),

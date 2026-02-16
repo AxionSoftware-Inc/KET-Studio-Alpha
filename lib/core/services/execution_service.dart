@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'; // <--- ValueNotifier uchun kerak
 import 'terminal_service.dart';
 import 'viz_service.dart';
-import '../constants/viz_protocol.dart';
 
 class ExecutionService {
   static final ExecutionService _instance = ExecutionService._internal();
@@ -15,7 +14,7 @@ class ExecutionService {
   // --- 1. BU YERDA XATO BERAYOTGAN "isRunning" BOR ---
   final ValueNotifier<bool> isRunning = ValueNotifier(false);
 
-  Future<void> runPython(String filePath) async {
+  Future<void> runPython(String filePath, {String? content}) async {
     final terminal = TerminalService();
 
     if (_process != null) stop();
@@ -27,10 +26,29 @@ class ExecutionService {
       final sessionId = "v_${DateTime.now().millisecondsSinceEpoch}";
       VizService().startSession(sessionId);
 
-      // 1. CREATE LAUNCHER AND HELPER LIBRARY
-      final projectDir = Directory(
-        File(filePath).parent.path,
-      ).absolute.path.replaceAll(r'\', '/');
+      String actualFilePath = filePath;
+      String projectDir;
+
+      // Handle "Fake" or unsaved files by writing them to a real temp location
+      if (filePath.startsWith('/fake')) {
+        final tempSystemDir = Directory.systemTemp.createTempSync(
+          'ket_studio_exec_',
+        );
+        projectDir = tempSystemDir.path.replaceAll(r'\', '/');
+        actualFilePath = "$projectDir/temp_script.py";
+        if (content != null) {
+          await File(actualFilePath).writeAsString(content);
+        } else {
+          terminal.write("Error: Cannot run unsaved file without content.");
+          isRunning.value = false;
+          return;
+        }
+      } else {
+        projectDir = Directory(
+          File(filePath).parent.path,
+        ).absolute.path.replaceAll(r'\', '/');
+      }
+
       final ketBaseDir = "$projectDir/.ket";
       final outDir = "$ketBaseDir/out";
       final tempDir = "$ketBaseDir/temp";
@@ -42,6 +60,9 @@ class ExecutionService {
       final launcherPath = "$tempDir/launcher.py";
       final helperPath1 = "$projectDir/ket_viz.py";
       final helperPath2 = "$projectDir/ketviz.py";
+
+      // Update filePath for the launcher below
+      final scriptToRun = actualFilePath.replaceAll(r'\', '/');
 
       const helperCode = """
 import json, time, os
@@ -151,12 +172,12 @@ except Exception as e:
         }
       }
 
-      terminal.write("> Executing: $executable $filePath");
+      terminal.write("> Executing: $executable $scriptToRun");
       terminal.write("----------------------------------------");
 
       _process = await Process.start(
         executable,
-        ['-u', launcherPath, filePath],
+        ['-u', launcherPath, scriptToRun],
         workingDirectory: projectDir,
         environment: {"KET_OUT": outDir, "PYTHONUNBUFFERED": "1"},
       );
@@ -172,15 +193,26 @@ except Exception as e:
           final trimmed = line.trim();
           if (trimmed.isEmpty) continue;
 
-          // --- KET_VIZ PROTOCOL (New standard) ---
-          if (trimmed.startsWith(VizProtocol.prefix)) {
+          // --- KET_VIZ PROTOCOL ---
+          final upperTrimmed = trimmed.toUpperCase();
+          if (upperTrimmed.startsWith("KET_VIZ")) {
             try {
-              final jsonStr = trimmed
-                  .substring(VizProtocol.prefix.length)
-                  .trim();
-              final msg = jsonDecode(jsonStr);
-              final kind = msg['kind'] as String;
-              final payload = msg['payload'];
+              // Extract everything after the first colon or after the "KET_VIZ" tag
+              String jsonPart;
+              if (upperTrimmed.contains(':')) {
+                jsonPart = trimmed.substring(trimmed.indexOf(':') + 1).trim();
+              } else {
+                jsonPart = trimmed.substring(7).trim(); // Skip "KET_VIZ"
+              }
+
+              final msg = jsonDecode(jsonPart);
+              String kind = (msg['kind'] ?? msg['type'] ?? "")
+                  .toString()
+                  .toLowerCase();
+              final payload = msg['payload'] ?? msg['data'];
+
+              // Map 'quantum' kind to our internal 'dashboard' type for consistency
+              if (kind == "quantum") kind = "dashboard";
 
               final type = VizType.values.firstWhere(
                 (e) => e.toString().split('.').last == kind,
@@ -188,17 +220,19 @@ except Exception as e:
               );
 
               if (type != VizType.none) {
-                // If it's an image, resolve path
+                // Image path resolution
                 if (type == VizType.image || type == VizType.circuit) {
-                  String? path = payload['path'];
+                  String? path = payload is Map
+                      ? payload['path']
+                      : payload.toString();
                   if (path != null && !File(path).isAbsolute) {
-                    payload['path'] = "$projectDir/$path";
+                    if (payload is Map) payload['path'] = "$projectDir/$path";
                   }
                 }
                 VizService().updateData(type, payload);
               }
             } catch (e) {
-              debugPrint("KET_VIZ Parse Error: $e");
+              debugPrint("KET_VIZ Parse Error: $e in line: $trimmed");
             }
           }
           // 1. VIZ: explicitly (Legacy support)

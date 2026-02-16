@@ -105,7 +105,7 @@ class VizService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectEvent(VizEvent event) {
+  void selectEvent(VizEvent? event) {
     _selectedEvent = event;
     notifyListeners();
   }

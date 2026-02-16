@@ -17,7 +17,10 @@ class TopBar extends StatelessWidget {
     final activeFile = EditorService().activeFile;
     if (activeFile == null) return;
     await EditorService().saveActiveFile();
-    await ExecutionService().runPython(activeFile.path);
+    await ExecutionService().runPython(
+      activeFile.path,
+      content: activeFile.controller.text,
+    );
   }
 
   @override

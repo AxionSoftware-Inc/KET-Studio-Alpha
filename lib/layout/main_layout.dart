@@ -11,6 +11,7 @@ import '../core/plugin/plugin_system.dart';
 import '../core/services/layout_service.dart';
 import '../core/services/menu_service.dart';
 import '../core/services/python_setup_service.dart';
+import '../core/services/app_service.dart';
 
 // MODULES
 import '../modules/editor/editor_widget.dart';
@@ -43,6 +44,9 @@ class _MainLayoutState extends State<MainLayout> {
         _layout.toggleBottomPanel();
       }
       PythonSetupService().checkAndInstallDependencies();
+
+      // Handle First Run / Welcome Demo
+      AppService().initialize();
     });
   }
 
