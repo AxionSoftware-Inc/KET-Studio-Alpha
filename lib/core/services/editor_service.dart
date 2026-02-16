@@ -14,6 +14,7 @@ class EditorService extends ChangeNotifier {
   // STATE
   final List<EditorFile> _files = [];
   int _activeFileIndex = -1;
+  final ValueNotifier<bool> hasActiveFile = ValueNotifier(false);
 
   // GETTERS
   List<EditorFile> get files => _files;
@@ -55,6 +56,7 @@ class EditorService extends ChangeNotifier {
 
     _files.add(newFile);
     _activeFileIndex = _files.length - 1;
+    hasActiveFile.value = true;
     notifyListeners();
   }
 
@@ -63,6 +65,7 @@ class EditorService extends ChangeNotifier {
     _files.removeAt(index);
     if (_files.isEmpty) {
       _activeFileIndex = -1;
+      hasActiveFile.value = false;
     } else if (index <= _activeFileIndex) {
       _activeFileIndex = (_activeFileIndex - 1).clamp(0, _files.length - 1);
     }
@@ -122,5 +125,33 @@ class EditorService extends ChangeNotifier {
         }
       }
     }
+  }
+
+  // 7. REVERT (Yangilash)
+  Future<void> revertFile() async {
+    final file = activeFile;
+    if (file == null || file.path.startsWith('/fake')) return;
+    try {
+      final content = await File(file.path).readAsString();
+      file.controller.text = content;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Revert error: $e");
+    }
+  }
+
+  // 8. CLOSE ACTIVE
+  void closeActiveFile() {
+    if (_activeFileIndex != -1) {
+      closeFile(_activeFileIndex);
+    }
+  }
+
+  // 9. CLOSE ALL
+  void closeAll() {
+    _files.clear();
+    _activeFileIndex = -1;
+    hasActiveFile.value = false;
+    notifyListeners();
   }
 }

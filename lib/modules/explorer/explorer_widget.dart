@@ -46,11 +46,7 @@ class _ExplorerWidgetState extends State<ExplorerWidget> {
               Expanded(
                 child: Text(
                   "EXPLORER: ${rootPath.split(Platform.pathSeparator).last.toUpperCase()}",
-                  style: const TextStyle(
-                    color: KetTheme.textMain,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: KetTheme.headerStyle,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

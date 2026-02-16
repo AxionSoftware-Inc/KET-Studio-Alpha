@@ -58,6 +58,9 @@ def table(title, rows):
 def text(content):
     viz("text", {"content": content})
 
+def histogram(counts, title="Counts"):
+    viz("quantum", {"histogram": counts, "title": title})
+
 def plot(fig, name="plot.png", title=None):
     out_dir = os.environ.get("KET_OUT", ".")
     if not os.path.exists(out_dir):
@@ -295,12 +298,16 @@ except Exception as e:
         }
       });
 
+      String stderrBuffer = "";
       _process?.stderr.transform(utf8.decoder).listen((data) {
         terminal.write("❌ Error: $data");
-        VizService().updateData(VizType.error, data);
+        stderrBuffer += data;
       });
 
       final exitCode = await _process!.exitCode;
+      if (exitCode != 0 && stderrBuffer.isNotEmpty) {
+        VizService().updateData(VizType.error, stderrBuffer);
+      }
       terminal.write("----------------------------------------");
       terminal.write("Process finished with exit code $exitCode");
 

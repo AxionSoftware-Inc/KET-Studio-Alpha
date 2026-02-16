@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
+import 'command_service.dart';
 
 // 1. Menyu Elementi Modeli
 class MenuItemData {
-  final String label; // Masalan: "New File"
-  final IconData? icon; // Masalan: Icons.add
-  final VoidCallback? onTap; // Bosilganda nima bo'lishi
-  final String? shortcut; // Masalan: "Ctrl+N"
+  final String? commandId; // null bo'lsa separator
+  final String? customLabel; // Agar command title'dan boshqa nom kerak bo'lsa
   final bool isSeparator;
 
-  MenuItemData({
-    this.label = "",
-    this.onTap,
-    this.icon,
-    this.shortcut,
-    this.isSeparator = false,
-  });
+  MenuItemData({this.commandId, this.customLabel, this.isSeparator = false});
 
   static MenuItemData separator() => MenuItemData(isSeparator: true);
+
+  // Helper getters to get data from command registry
+  Command? get command =>
+      commandId != null ? CommandService().getCommand(commandId!) : null;
+  String get label => customLabel ?? command?.title ?? "";
 }
 
 // 2. Menyu Guruhi (File, Edit, View...)
@@ -29,31 +27,23 @@ class MenuGroup {
 
 // 3. Xizmat (Service)
 class MenuService extends ChangeNotifier {
-  // Singleton
   static final MenuService _instance = MenuService._internal();
   factory MenuService() => _instance;
   MenuService._internal();
 
-  // Asosiy ro'yxat
   final List<MenuGroup> _menus = [];
-
   List<MenuGroup> get menus => _menus;
 
-  // --- REGISTRATSIYA FUNKSIYASI ---
-  // Bu funksiya orqali istalgan joydan menyu qo'shsa bo'ladi
   void registerMenu(String title, List<MenuItemData> items) {
-    // Agar bu nomdagi menyu bor bo'lsa, ichiga qo'shamiz
     final existingIndex = _menus.indexWhere((m) => m.title == title);
-
     if (existingIndex != -1) {
       _menus[existingIndex].items.addAll(items);
     } else {
       _menus.add(MenuGroup(title: title, items: items));
     }
-    notifyListeners(); // UI yangilansin
+    notifyListeners();
   }
 
-  // Tozalash (kerak bo'lsa)
   void clear() {
     _menus.clear();
     notifyListeners();

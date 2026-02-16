@@ -54,14 +54,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
                       color: Colors.green,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      "TERMINAL",
-                      style: TextStyle(
-                        color: KetTheme.textMain,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text("TERMINAL", style: KetTheme.headerStyle),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(FluentIcons.delete),

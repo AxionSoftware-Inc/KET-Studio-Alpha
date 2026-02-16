@@ -3,6 +3,7 @@ import 'package:multi_split_view/multi_split_view.dart';
 
 // CONFIG & THEME
 import '../config/menu_setup.dart';
+import '../config/command_registry.dart';
 import '../core/theme/ket_theme.dart';
 
 // SERVICES
@@ -34,6 +35,7 @@ class _MainLayoutState extends State<MainLayout> {
     _layout.addListener(() => setState(() {}));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      setupCommands(context);
       if (MenuService().menus.isEmpty) setupMenus(context);
 
       // Auto-setup Qiskit environment

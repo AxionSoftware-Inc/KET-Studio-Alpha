@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' as m;
 import 'package:ket_studio/plugin_setup.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart' as flutter_acrylic;
+import 'core/theme/ket_theme.dart';
 import 'dart:io';
 
 // 1. ASOSIY LAYOUT (Oynalar tizimi)
@@ -48,7 +49,9 @@ class QuantumIDE extends StatelessWidget {
       theme: FluentThemeData(
         brightness: Brightness.dark,
         accentColor: Colors.purple,
-        visualDensity: VisualDensity.standard,
+        fontFamily: KetTheme.globalFont.fontFamily,
+        visualDensity: VisualDensity.compact,
+        scaffoldBackgroundColor: KetTheme.bgCanvas,
         focusTheme: FocusThemeData(
           glowFactor: is10footScreen(context) ? 2.0 : 0.0,
         ),
@@ -56,8 +59,9 @@ class QuantumIDE extends StatelessWidget {
       darkTheme: FluentThemeData(
         brightness: Brightness.dark,
         accentColor: Colors.purple,
-        visualDensity: VisualDensity.standard,
-        scaffoldBackgroundColor: const Color(0xFF1E1E1E),
+        fontFamily: KetTheme.globalFont.fontFamily,
+        visualDensity: VisualDensity.compact,
+        scaffoldBackgroundColor: KetTheme.bgCanvas,
       ),
       home: m.Material(
         type: m.MaterialType.transparency,

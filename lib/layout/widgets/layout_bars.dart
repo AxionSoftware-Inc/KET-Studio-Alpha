@@ -6,6 +6,7 @@ import '../../core/services/execution_service.dart';
 import '../../core/services/editor_service.dart';
 import '../../core/services/layout_service.dart';
 import '../../core/services/python_setup_service.dart';
+import '../../core/services/command_service.dart';
 import '../../core/plugin/plugin_system.dart';
 
 // 1. TOP BAR (Custom Title Bar)
@@ -22,49 +23,50 @@ class TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 48, // Modern Windows 11 title bar height
-      color: KetTheme.bgSidebar,
+      height: 35, // macOS-like compact height
+      decoration: BoxDecoration(
+        color: KetTheme.bgSidebar,
+        border: Border(
+          bottom: BorderSide(color: Colors.black.withValues(alpha: 0.2)),
+        ),
+      ),
       child: Row(
         children: [
           // App Icon & Brand
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            padding: const EdgeInsets.only(left: 12.0, right: 8.0),
             child: Image.asset(
               'assets/quantum.jpg',
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               fit: BoxFit.contain,
             ),
           ),
 
-          // INSTALLATIONS STATUS
+          // INSTALLATIONS STATUS (stays visible when active)
           ValueListenableBuilder<String?>(
             valueListenable: PythonSetupService().currentTask,
             builder: (context, task, child) {
               if (task == null) return const SizedBox();
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: ProgressRing(strokeWidth: 2),
+                      width: 10,
+                      height: 10,
+                      child: ProgressRing(strokeWidth: 1.5),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Text(
                       task.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.bold,
                         color: Colors.blue,
                       ),
@@ -79,36 +81,58 @@ class TopBar extends StatelessWidget {
           Expanded(
             child: MoveWindow(
               child: ListenableBuilder(
-                listenable: MenuService(),
+                listenable: Listenable.merge([
+                  MenuService(),
+                  CommandService(),
+                  EditorService(),
+                  ExecutionService().isRunning,
+                ]),
                 builder: (context, _) {
                   return Row(
                     children: MenuService().menus.map((group) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 2.0),
                         child: DropDownButton(
-                          title: Text(
-                            group.title,
-                            style: TextStyle(fontSize: 13, color: Colors.white),
+                          title: Text(group.title, style: KetTheme.menuStyle),
+                          trailing:
+                              const SizedBox.shrink(), // No arrow (macOS style)
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.resolveWith((
+                              states,
+                            ) {
+                              if (states.isHovered) return KetTheme.bgHover;
+                              return Colors.transparent;
+                            }),
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                            ),
                           ),
                           items: group.items.map((item) {
                             if (item.isSeparator) {
                               return const MenuFlyoutSeparator();
                             }
+                            final cmd = item.command;
+                            if (cmd == null) return const MenuFlyoutSeparator();
+
                             return MenuFlyoutItem(
-                              leading: item.icon != null
-                                  ? Icon(item.icon, size: 14)
+                              leading: cmd.icon != null
+                                  ? Icon(cmd.icon, size: 14)
                                   : null,
-                              text: Text(item.label),
-                              onPressed: item.onTap,
-                              trailing: item.shortcut != null
+                              text: Text(item.label, style: KetTheme.menuStyle),
+                              onPressed:
+                                  (cmd.isEnabled == null || cmd.isEnabled!())
+                                  ? cmd.action
+                                  : null,
+                              trailing: cmd.shortcut != null
                                   ? Text(
-                                      item.shortcut!,
-                                      style:
-                                          (FluentTheme.maybeOf(
-                                                    context,
-                                                  )?.typography.caption ??
-                                                  const TextStyle())
-                                              .copyWith(color: Colors.grey),
+                                      cmd.shortcut!,
+                                      style: KetTheme.menuStyle.copyWith(
+                                        color: KetTheme.textMuted,
+                                        fontSize: 10,
+                                      ),
                                     )
                                   : null,
                             );
@@ -454,15 +478,7 @@ class PanelHeader extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  panel.title.toUpperCase(),
-                  style: const TextStyle(
-                    color: KetTheme.textMain,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                Text(panel.title.toUpperCase(), style: KetTheme.headerStyle),
                 const Icon(
                   FluentIcons.more,
                   color: KetTheme.textMain,
