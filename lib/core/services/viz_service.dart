@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import 'dart:async';
 
 enum VizStatus { idle, running, hasOutput, error, stopped }
 
@@ -52,6 +54,19 @@ class VizService extends ChangeNotifier {
   factory VizService() => _instance;
   VizService._internal();
 
+  @override
+  void notifyListeners() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    // Only defer if we are in a phase that forbids setState
+    if (phase != SchedulerPhase.idle) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (hasListeners) super.notifyListeners();
+      });
+    } else {
+      super.notifyListeners();
+    }
+  }
+
   final List<VizSession> _sessions = [];
   List<VizSession> get sessions => _sessions;
 
@@ -73,6 +88,9 @@ class VizService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Timer? _throttleTimer;
+  bool _pendingUpdate = false;
+
   void updateData(VizType type, dynamic payload) {
     if (_currentSession == null) return;
 
@@ -84,7 +102,16 @@ class VizService extends ChangeNotifier {
 
     _currentSession!.addEvent(event);
     _status = VizStatus.hasOutput;
-    notifyListeners();
+
+    // Throttle UI updates to 20fps max during high-speed streams
+    if (!_pendingUpdate) {
+      _pendingUpdate = true;
+      _throttleTimer?.cancel();
+      _throttleTimer = Timer(const Duration(milliseconds: 50), () {
+        _pendingUpdate = false;
+        notifyListeners();
+      });
+    }
   }
 
   void endSession({int exitCode = 0, String? error}) {
@@ -102,6 +129,9 @@ class VizService extends ChangeNotifier {
       _currentSession!.status = VizStatus.stopped;
       _status = VizStatus.hasOutput;
     }
+
+    _pendingUpdate = false;
+    _throttleTimer?.cancel();
     notifyListeners();
   }
 

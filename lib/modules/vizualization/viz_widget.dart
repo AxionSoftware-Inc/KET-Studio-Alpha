@@ -19,73 +19,75 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
   Timer? _hintTimer;
   final ScrollController _scrollController = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    VizService().addListener(_refresh);
+  void _setupHintTimer() {
+    _hintTimer?.cancel();
+    _showNoOutputHint = false;
+    _hintTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted &&
+          VizService().status == VizStatus.running &&
+          VizService().selectedEvent == null) {
+        setState(() => _showNoOutputHint = true);
+      }
+    });
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
   void dispose() {
-    VizService().removeListener(_refresh);
     _hintTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _refresh() {
-    final service = VizService();
-    if (service.status == VizStatus.running) {
-      if (_runStartTime == null) {
-        _runStartTime = DateTime.now();
-        _showNoOutputHint = false;
-        _hintTimer?.cancel();
-        _hintTimer = Timer(const Duration(seconds: 3), () {
-          if (mounted &&
-              VizService().status == VizStatus.running &&
-              VizService().selectedEvent == null) {
-            setState(() => _showNoOutputHint = true);
-          }
-        });
-      }
-    } else {
-      _runStartTime = null;
-      _showNoOutputHint = false;
-      _hintTimer?.cancel();
-    }
-
-    // Auto-scroll logic safely
-    if (service.selectedEvent == null && _scrollController.hasClients) {
-      Future.delayed(const Duration(milliseconds: 50), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
-
-    setState(() {});
-  }
-
   @override
   Widget build(BuildContext context) {
-    final service = VizService();
-    final status = service.status;
-    final event = service.selectedEvent;
+    return ListenableBuilder(
+      listenable: VizService(),
+      builder: (context, _) {
+        final service = VizService();
+        final status = service.status;
+        final event = service.selectedEvent;
 
-    return Column(
-      children: [
-        _buildHeader(service),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: _buildMainContent(status, event, service),
-          ),
-        ),
-      ],
+        // Manage hint timer based on status
+        if (status == VizStatus.running) {
+          if (_runStartTime == null) {
+            _runStartTime = DateTime.now();
+            _setupHintTimer();
+          }
+        } else {
+          _runStartTime = null;
+          _hintTimer?.cancel();
+          _showNoOutputHint = false;
+        }
+
+        // Auto-scroll logic safely
+        if (event == null && _scrollController.hasClients) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _scrollToBottom(),
+          );
+        }
+
+        return Column(
+          children: [
+            _buildHeader(service),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _buildMainContent(status, event, service),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

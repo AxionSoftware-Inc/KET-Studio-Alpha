@@ -14,6 +14,23 @@ class _InspectorWidgetState extends State<InspectorWidget> {
   int _currentFrame = 0;
 
   @override
+  void didUpdateWidget(covariant InspectorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final frames = widget.payload['frames'] as List<dynamic>? ?? const [];
+    if (frames.isEmpty) {
+      if (_currentFrame != 0) setState(() => _currentFrame = 0);
+      return;
+    }
+    final clamped = _currentFrame.clamp(0, frames.length - 1);
+    if (clamped != _currentFrame) {
+      // Defer to next frame to avoid building during build
+      Future.microtask(() {
+        if (mounted) setState(() => _currentFrame = clamped);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final frames = widget.payload['frames'] as List<dynamic>? ?? [];
     if (frames.isEmpty) return const Center(child: Text("No inspector data"));
@@ -181,7 +198,12 @@ class _InspectorWidgetState extends State<InspectorWidget> {
                     value: _currentFrame.toDouble(),
                     min: 0,
                     max: math.max(0, frames.length - 1).toDouble(),
-                    onChanged: (v) => setState(() => _currentFrame = v.toInt()),
+                    onChanged: (v) {
+                      final newFrame = v.toInt();
+                      if (newFrame != _currentFrame) {
+                        setState(() => _currentFrame = newFrame);
+                      }
+                    },
                   ),
                 ),
               ),
@@ -210,23 +232,25 @@ class _InspectorWidgetState extends State<InspectorWidget> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
         ),
         const SizedBox(height: 8),
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: KetTheme.textMuted.withValues(alpha: 0.3),
+        RepaintBoundary(
+          child: Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: KetTheme.textMuted.withValues(alpha: 0.3),
+              ),
+              gradient: RadialGradient(
+                colors: [
+                  KetTheme.accent.withValues(alpha: 0.1),
+                  Colors.transparent,
+                ],
+              ),
             ),
-            gradient: RadialGradient(
-              colors: [
-                KetTheme.accent.withValues(alpha: 0.1),
-                Colors.transparent,
-              ],
+            child: CustomPaint(
+              painter: BlochPainter(theta, phi, KetTheme.accent),
             ),
-          ),
-          child: CustomPaint(
-            painter: BlochPainter(theta, phi, KetTheme.accent),
           ),
         ),
       ],
@@ -270,7 +294,6 @@ class BlochPainter extends CustomPainter {
     // theta: 0 to pi (Z axis), phi: 0 to 2pi (XY plane)
     final z = math.cos(theta);
     final x = math.sin(theta) * math.cos(phi);
-    // ignore: unused_local_variable
     final y = math.sin(theta) * math.sin(phi);
 
     // Vector point on 2D
@@ -284,10 +307,13 @@ class BlochPainter extends CustomPainter {
       paint..style = PaintingStyle.fill,
     );
 
-    // Draw "ghost" indicator for Y/Depth if needed
+    // Center point
     canvas.drawCircle(center, 2, Paint()..color = Colors.white);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant BlochPainter oldDelegate) =>
+      oldDelegate.theta != theta ||
+      oldDelegate.phi != phi ||
+      oldDelegate.color != color;
 }

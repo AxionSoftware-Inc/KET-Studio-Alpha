@@ -1,5 +1,6 @@
 import 'dart:io'; // <--- BU ENG MUHIM IMPORT (Disk bilan ishlash uchun)
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:code_text_field/code_text_field.dart';
 import 'package:highlight/languages/python.dart';
 import 'package:highlight/languages/dart.dart';
@@ -10,6 +11,18 @@ class EditorService extends ChangeNotifier {
   static final EditorService _instance = EditorService._internal();
   factory EditorService() => _instance;
   EditorService._internal();
+
+  @override
+  void notifyListeners() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        super.notifyListeners();
+      });
+    } else {
+      super.notifyListeners();
+    }
+  }
 
   // STATE
   final List<EditorFile> _files = [];

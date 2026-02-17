@@ -286,14 +286,19 @@ except Exception as e:
                   VizService().updateData(type, payload);
 
                   // Auto-switch panels safely outside of build phase
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (type == VizType.inspector) {
-                      LayoutService().setRightPanel('inspector');
-                    } else if (type != VizType.none && type != VizType.error) {
-                      if (LayoutService().activeRightPanelId == null) {
-                        LayoutService().setRightPanel('vizualization');
+                  Future.microtask(() {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (type == VizType.inspector) {
+                        if (LayoutService().activeRightPanelId != 'inspector') {
+                          LayoutService().setRightPanel('inspector');
+                        }
+                      } else if (type != VizType.none &&
+                          type != VizType.error) {
+                        if (LayoutService().activeRightPanelId == null) {
+                          LayoutService().setRightPanel('vizualization');
+                        }
                       }
-                    }
+                    });
                   });
                 }
               }

@@ -29,86 +29,106 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   final LayoutService _layout = LayoutService();
+  final MultiSplitViewController _hController = MultiSplitViewController();
+  final MultiSplitViewController _vController = MultiSplitViewController();
 
   @override
   void initState() {
     super.initState();
-    _layout.addListener(() => setState(() {}));
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setupCommands(context);
       if (MenuService().menus.isEmpty) setupMenus(context);
-
-      // Auto-setup Qiskit environment
-      if (!_layout.isBottomPanelVisible) {
-        _layout.toggleBottomPanel();
-      }
+      if (!_layout.isBottomPanelVisible) _layout.toggleBottomPanel();
       PythonSetupService().checkAndInstallDependencies();
-
-      // Handle First Run / Welcome Demo
       AppService().initialize();
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (MenuService().menus.isEmpty) setupMenus(context);
-
-    final activeLeft = _layout.activeLeftPanelId != null
-        ? PluginRegistry().getPanel(_layout.activeLeftPanelId!)
-        : null;
-    final activeRight = _layout.activeRightPanelId != null
-        ? PluginRegistry().getPanel(_layout.activeRightPanelId!)
-        : null;
-
-    return Container(
-      color: KetTheme.bgCanvas,
-      child: Column(
-        children: [
-          TopBar(),
-
-          Expanded(
-            child: Row(
-              children: [
-                ActivityBar(isLeft: true, layout: _layout),
-                Expanded(child: _buildCentralSplit(activeLeft, activeRight)),
-                ActivityBar(isLeft: false, layout: _layout),
-              ],
-            ),
-          ),
-
-          StatusBar(layout: _layout),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCentralSplit(ISidePanel? left, ISidePanel? right) {
-    List<Area> hAreas = [];
-
-    if (left != null) {
-      hAreas.add(
+  void _syncControllers(ISidePanel? left, ISidePanel? right) {
+    final List<Area> hAreas = [
+      if (left != null)
         Area(
           data: PanelHeader(panel: left, child: left.buildContent(context)),
           size: 250,
         ),
-      );
-    }
-
-    hAreas.add(Area(data: const EditorWidget(), flex: 1));
-
-    if (right != null) {
-      hAreas.add(
+      Area(data: const EditorWidget(), flex: 1),
+      if (right != null)
         Area(
           data: PanelHeader(panel: right, child: right.buildContent(context)),
           size: 300,
         ),
-      );
+    ];
+
+    if (_hController.areas.length != hAreas.length) {
+      _hController.areas = hAreas;
     }
 
+    if (_layout.isBottomPanelVisible) {
+      final List<Area> vAreas = [
+        Area(
+          data: const SizedBox(),
+          flex: 1,
+        ), // Placeholder, MultiSplit handles nesting
+        Area(data: TerminalWidget(layout: _layout), size: 180),
+      ];
+      if (_vController.areas.length != vAreas.length) {
+        _vController.areas = vAreas;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _hController.dispose();
+    _vController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _layout,
+      builder: (context, _) {
+        if (MenuService().menus.isEmpty) setupMenus(context);
+
+        final activeLeft = _layout.activeLeftPanelId != null
+            ? PluginRegistry().getPanel(_layout.activeLeftPanelId!)
+            : null;
+        final activeRight = _layout.activeRightPanelId != null
+            ? PluginRegistry().getPanel(_layout.activeRightPanelId!)
+            : null;
+
+        // Sync without postFrame if possible, or use a safer trigger
+        _syncControllers(activeLeft, activeRight);
+
+        return Container(
+          color: KetTheme.bgCanvas,
+          child: Column(
+            children: [
+              const TopBar(),
+              Expanded(
+                child: Row(
+                  children: [
+                    ActivityBar(isLeft: true, layout: _layout),
+                    Expanded(
+                      child: _buildCentralSplit(activeLeft, activeRight),
+                    ),
+                    ActivityBar(isLeft: false, layout: _layout),
+                  ],
+                ),
+              ),
+              StatusBar(layout: _layout),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCentralSplit(ISidePanel? left, ISidePanel? right) {
     Widget horizontalView;
-    if (hAreas.length == 1) {
-      horizontalView = hAreas.first.data as Widget;
+    if (left == null && right == null) {
+      horizontalView = const EditorWidget();
     } else {
       horizontalView = MultiSplitViewTheme(
         data: MultiSplitViewThemeData(
@@ -116,9 +136,7 @@ class _MainLayoutState extends State<MainLayout> {
           dividerPainter: DividerPainters.background(color: Colors.black),
         ),
         child: MultiSplitView(
-          // Use a key that only changes when the number/type of panels change
-          key: ValueKey("H-SP-${hAreas.length}-${left?.id}-${right?.id}"),
-          initialAreas: hAreas,
+          controller: _hController,
           builder: (context, area) => area.data as Widget,
         ),
       );
@@ -133,12 +151,11 @@ class _MainLayoutState extends State<MainLayout> {
       ),
       child: MultiSplitView(
         axis: Axis.vertical,
-        key: ValueKey("V-SP-${_layout.isBottomPanelVisible}"),
-        initialAreas: [
-          Area(data: horizontalView, flex: 1),
-          Area(data: TerminalWidget(layout: _layout), size: 180),
-        ],
-        builder: (context, area) => area.data as Widget,
+        controller: _vController,
+        builder: (context, area) {
+          if (area.index == 0) return horizontalView;
+          return area.data as Widget;
+        },
       ),
     );
   }

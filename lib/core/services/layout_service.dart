@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class LayoutService extends ChangeNotifier {
   static final LayoutService _instance = LayoutService._internal();
   factory LayoutService() => _instance;
   LayoutService._internal();
+
+  @override
+  void notifyListeners() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase != SchedulerPhase.idle) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (hasListeners) super.notifyListeners();
+      });
+    } else {
+      super.notifyListeners();
+    }
+  }
 
   String? _activeLeftPanelId = 'explorer';
   String? _activeRightPanelId = 'vizualization';
