@@ -11,13 +11,24 @@ class WelcomeWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: KetTheme.bgCanvas,
+      decoration: BoxDecoration(
+        color: KetTheme.bgCanvas,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            KetTheme.bgCanvas,
+            KetTheme.bgCanvas,
+            KetTheme.accent.withValues(alpha: 0.05),
+          ],
+        ),
+      ),
       child: SingleChildScrollView(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
+            constraints: const BoxConstraints(maxWidth: 850),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 60.0),
+              padding: const EdgeInsets.symmetric(vertical: 80.0, horizontal: 40.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -25,35 +36,51 @@ class WelcomeWidget extends StatelessWidget {
                   // Logo & Title
                   Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          'assets/quantum.jpg',
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: KetTheme.accent.withValues(alpha: 0.2),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.asset(
+                            'assets/quantum.jpg',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            DemoContent.welcomeTitle,
-                            style: const TextStyle(
-                              fontSize: 42,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                      const SizedBox(width: 32),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              DemoContent.welcomeTitle,
+                              style: const TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -1.0,
+                              ),
                             ),
-                          ),
-                          Text(
-                            DemoContent.welcomeSubtitle,
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: KetTheme.textMuted,
+                            Text(
+                              DemoContent.welcomeSubtitle,
+                              style: TextStyle(
+                                fontSize: 20,
+                                color: KetTheme.textMuted,
+                                fontWeight: FontWeight.w400,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

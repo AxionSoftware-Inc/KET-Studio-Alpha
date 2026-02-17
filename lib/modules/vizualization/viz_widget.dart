@@ -96,9 +96,7 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
     final service = VizService();
     final status = service.status;
 
-    return Expanded(
-      child: _buildMainContent(service, status),
-    );
+    return _buildMainContent(service, status);
   }
 
   Widget _buildMainContent(VizService service, VizStatus status) {
@@ -448,66 +446,47 @@ class _MatrixHeatmap extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             double w = constraints.maxWidth;
-            if (w > 400) w = 400; 
-            return SizedBox(
-              width: w,
-              height: w * (rows / cols),
-              child: CustomPaint(
-                painter: _MatrixPainter(data: data, rows: rows, cols: cols, accentColor: KetTheme.accent),
+            double padding = 2; // Spacing between cells
+            double cellSize = (w - (cols - 1) * padding) / cols;
+            cellSize = math.min(cellSize, 40.0); // Limit cell size
+
+            return Center(
+              child: SizedBox(
+                width: cellSize * cols + (cols - 1) * padding,
+                child: Wrap(
+                  spacing: padding,
+                  runSpacing: padding,
+                  children: List.generate(rows * cols, (i) {
+                    int r = i ~/ cols;
+                    int c = i % cols;
+                    double val = 0;
+                    if (data is List) {
+                      val = (data[r][c] as num).toDouble();
+                    } else if (data is Map) {
+                      val = (data['$r,$c'] ?? 0.0).toDouble();
+                    }
+                    return _HeatBox(value: val, size: cellSize);
+                  }),
+                ),
               ),
             );
-          }
+          },
         ),
       ],
     );
   }
 }
 
-class _MatrixPainter extends CustomPainter {
-  final dynamic data;
-  final int rows;
-  final int cols;
-  final Color accentColor;
-
-  _MatrixPainter({required this.data, required this.rows, required this.cols, required this.accentColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    double cellW = size.width / cols;
-    double cellH = size.height / rows;
-    final bgPaint = Paint()..color = const Color(0xFF1A1A1A);
-    final paint = Paint();
-
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < cols; c++) {
-        double val = 0;
-        try {
-          if (data is List) {
-            val = (data[r][c] as num).toDouble();
-          } else {
-            val = (data["$r,$c"] ?? 0.0).toDouble();
-          }
-        } catch (_) {}
-        
-        Rect rect = Rect.fromLTWH(c * cellW, r * cellH, cellW, cellH).deflate(0.3);
-        canvas.drawRect(rect, bgPaint);
-        if (val > 0) {
-          paint.color = accentColor.withValues(alpha: val.clamp(0.0, 1.0));
-          canvas.drawRect(rect, paint);
-        }
-      }
-    }
-  }
-  @override bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class _HeatBox extends StatelessWidget {
   final double value;
-  const _HeatBox({required this.value});
+  final double size;
+  const _HeatBox({required this.value, required this.size});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(0.5),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: Color.lerp(
           const Color(0xFF1A1A1A),
@@ -515,13 +494,23 @@ class _HeatBox extends StatelessWidget {
           value.clamp(0.0, 1.0),
         ),
         borderRadius: BorderRadius.circular(2),
-      ),
-      child: Center(
-        child: Text(
-          value > 0.05 ? value.toStringAsFixed(1) : "",
-          style: const TextStyle(fontSize: 7, color: Colors.white),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: value > 0.5 ? 0.2 : 0.05),
+          width: 0.5,
         ),
       ),
+      child: size > 25 
+        ? Center(
+            child: Text(
+              value > 0.05 ? value.toStringAsFixed(1) : "",
+              style: TextStyle(
+                fontSize: size * 0.35, 
+                color: value > 0.6 ? Colors.black : Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        : null,
     );
   }
 }
@@ -598,39 +587,47 @@ class _HistogramChart extends StatelessWidget {
     final keys = map.keys.toList();
     final values = map.values.map((v) => (v as num).toDouble()).toList();
     final maxVal = values.isEmpty ? 1.0 : values.reduce(math.max);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(keys.length, (index) {
-        final ratio = values[index] / (maxVal == 0 ? 1 : maxVal);
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Column(
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double barWidth = (constraints.maxWidth / math.max(keys.length, 1)) - 8;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: List.generate(keys.length, (i) {
+            final double hRatio = values[i] / maxVal;
+            return Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  values[index].toStringAsFixed(0),
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
-                ),
                 Container(
-                  height: ratio * 80,
+                  width: math.max(barWidth, 4.0),
+                  height: hRatio * (constraints.maxHeight - 20),
                   decoration: BoxDecoration(
-                    color: KetTheme.accent,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(2),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [KetTheme.accent, KetTheme.accent.withValues(alpha: 0.5)],
                     ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: KetTheme.accent.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  keys[index].toString(),
-                  style: const TextStyle(fontSize: 8),
+                  keys[i].toString(),
+                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey),
                 ),
               ],
-            ),
-          ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }
@@ -720,22 +717,77 @@ class _ImageDisplay extends StatelessWidget {
 class _SimpleChart extends StatelessWidget {
   final dynamic data;
   const _SimpleChart({required this.data});
+  
   @override
   Widget build(BuildContext context) {
-    if (data is! List) return const SizedBox();
-    if (data.length > 500) return const Text("Chart too large to display", style: TextStyle(fontSize: 10));
+    if (data is! List || data.isEmpty) return const SizedBox();
+    final List<double> points = (data as List).map((p) => (p as num).toDouble()).toList();
     
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: (data as List).map((p) => Expanded(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 0.5),
-          height: (((p as num).toDouble()) * 180).clamp(2.0, 180.0),
-          color: KetTheme.accent,
-        ),
-      )).toList(),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: _LineChartPainter(points: points, color: KetTheme.accent),
+      ),
     );
   }
+}
+
+class _LineChartPainter extends CustomPainter {
+  final List<double> points;
+  final Color color;
+  _LineChartPainter({required this.points, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+
+    final path = Path();
+    final fillPath = Path();
+    
+    final double stepX = size.width / (points.length - 1);
+    
+    path.moveTo(0, size.height * (1 - points[0].clamp(0.0, 1.0)));
+    fillPath.moveTo(0, size.height);
+    fillPath.lineTo(0, size.height * (1 - points[0].clamp(0.0, 1.0)));
+
+    for (int i = 1; i < points.length; i++) {
+      final double x = i * stepX;
+      final double y = size.height * (1 - points[i].clamp(0.0, 1.0));
+      path.lineTo(x, y);
+      fillPath.lineTo(x, y);
+    }
+
+    fillPath.lineTo(size.width, size.height);
+    fillPath.close();
+
+    // Draw Fill with Gradient
+    final paintFill = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.0)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawPath(fillPath, paintFill);
+
+    // Draw Line
+    final paintLine = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    canvas.drawPath(path, paintLine);
+
+    // Draw Last Point Glow
+    final lastX = size.width;
+    final lastY = size.height * (1 - points.last.clamp(0.0, 1.0));
+    canvas.drawCircle(Offset(lastX, lastY), 4, Paint()..color = color);
+    canvas.drawCircle(Offset(lastX, lastY), 8, Paint()..color = color.withValues(alpha: 0.3));
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) => true;
 }
 
 class BlochPainter extends CustomPainter {

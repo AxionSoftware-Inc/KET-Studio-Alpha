@@ -12,7 +12,11 @@ class MetricsSidebarWidget extends StatelessWidget {
       builder: (context, _) {
         final service = VizService();
         final currentSession = service.currentSession;
+        final status = service.status;
         
+        // 1. Check if we are currently running but have no metrics yet
+        bool isRunning = status == VizStatus.running;
+
         VizEvent? metricsEvent;
         if (currentSession != null) {
           try {
@@ -27,106 +31,109 @@ class MetricsSidebarWidget extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  FluentIcons.analytics_report,
-                  size: 40,
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "No metrics available",
-                  style: TextStyle(color: KetTheme.textMuted),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Run a job to see execution stats here.",
-                  style: TextStyle(color: KetTheme.textMuted, fontSize: 10),
-                ),
+                if (isRunning) ...[
+                  const ProgressRing(),
+                  const SizedBox(height: 16),
+                  Text("Executing script...", style: TextStyle(color: KetTheme.textMuted)),
+                  const SizedBox(height: 4),
+                  const Text("Waiting for metrics data...", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                ] else ...[
+                  Icon(
+                    FluentIcons.analytics_report,
+                    size: 40,
+                    color: Colors.grey.withValues(alpha: 0.1),
+                  ),
+                  const SizedBox(height: 16),
+                  Text("No metrics available", style: TextStyle(color: KetTheme.textMuted)),
+                  const SizedBox(height: 8),
+                  const Text("Run a script to see analytics here", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
               ],
             ),
           );
         }
 
         final data = metricsEvent.payload;
-        if (data is! Map) return const Center(child: Text("Invalid metrics data"));
-        final map = data as Map<String, dynamic>;
+        if (data is! Map) return const Center(child: Text("Invalid data format"));
+        final Map<String, dynamic> map = Map<String, dynamic>.from(data);
 
-        return SingleChildScrollView(
+        return ListView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "SESSION ${currentSession?.id.replaceFirst('v_', '')}",
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: KetTheme.accent,
+          children: [
+            Row(
+              children: [
+                Icon(FluentIcons.analytics_report, size: 14, color: KetTheme.accent),
+                const SizedBox(width: 10),
+                Text(
+                  "EXECUTION REPORT",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: KetTheme.textMain,
+                    letterSpacing: 1.0,
+                  ),
                 ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(FluentIcons.delete, size: 12),
+                  onPressed: () => service.clear(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ...map.entries.map((e) => _buildDynamicMetric(e.key, e.value)),
+            
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
-              const SizedBox(height: 16),
-              ...map.entries.map((e) => _buildMetricRow(e.key, e.value.toString())),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              _buildModernSummary(map),
-            ],
-          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("SESSION INFO", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  Text("ID: ${currentSession?.id}", style: const TextStyle(fontSize: 9, fontFamily: 'monospace')),
+                  Text("Completed: ${metricsEvent.timeStr}", style: const TextStyle(fontSize: 9)),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildMetricRow(String label, String value) {
+  Widget _buildDynamicMetric(String key, dynamic value) {
+    String displayValue = value.toString();
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label.toUpperCase(),
+            key.replaceAll('_', ' ').toUpperCase(),
             style: TextStyle(
               fontSize: 9,
-              color: KetTheme.textMuted,
+              color: KetTheme.accent,
               fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            value,
+            displayValue,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.05)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernSummary(Map<String, dynamic> data) {
-    // A nice visual summary for the bottom
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: KetTheme.accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: KetTheme.accent.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(FluentIcons.completed, color: KetTheme.accent, size: 16),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              "Job completed with high fidelity.",
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
+          const SizedBox(height: 10),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.08)),
         ],
       ),
     );
