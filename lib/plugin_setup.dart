@@ -10,6 +10,7 @@ void setupPlugins() {
 
   registry.register(ExplorerPlugin());
   registry.register(VisualizationPlugin());
+  registry.register(MetricsPlugin());
   registry.register(CircuitInspectorPlugin());
   registry.register(VizHistoryPlugin());
 

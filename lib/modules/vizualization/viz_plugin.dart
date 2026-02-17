@@ -2,7 +2,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../core/plugin/plugin_system.dart';
 import 'viz_widget.dart';
 import 'history_widget.dart';
+import 'history_widget.dart';
 import 'inspector_sidebar_widget.dart';
+import 'metrics_widget.dart';
 
 class VisualizationPlugin implements ISidePanel {
   @override
@@ -67,5 +69,27 @@ class CircuitInspectorPlugin implements ISidePanel {
   @override
   Widget buildContent(BuildContext context) {
     return const InspectorSidebarWidget();
+  }
+}
+
+class MetricsPlugin implements ISidePanel {
+  @override
+  String get id => 'metrics';
+
+  @override
+  IconData get icon => FluentIcons.analytics_report;
+
+  @override
+  String get title => 'METRICS';
+
+  @override
+  String get tooltip => 'Execution Metrics';
+
+  @override
+  PanelPosition get position => PanelPosition.right;
+
+  @override
+  Widget buildContent(BuildContext context) {
+    return const MetricsSidebarWidget();
   }
 }

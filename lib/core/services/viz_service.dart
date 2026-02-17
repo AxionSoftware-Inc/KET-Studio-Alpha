@@ -16,6 +16,7 @@ enum VizType {
   heatmap,
   inspector,
   error,
+  metrics,
   none,
 }
 
