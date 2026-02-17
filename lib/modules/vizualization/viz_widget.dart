@@ -105,7 +105,7 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            Expanded(child: SingleChildScrollView(child: _buildVizCard(service.selectedEvent!, isSingle: true))),
+            Expanded(child: _buildVizCard(service.selectedEvent!, isSingle: true)),
             const SizedBox(height: 12),
             Button(
               child: const Text("Back to Stream"),
