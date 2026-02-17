@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:code_text_field/code_text_field.dart';
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
@@ -16,6 +17,7 @@ class EditorWidget extends StatefulWidget {
 class _EditorWidgetState extends State<EditorWidget> {
   final EditorService _editorService = EditorService();
   CodeController? _currentController;
+  Timer? _cursorTimer;
 
   @override
   void initState() {
@@ -25,6 +27,7 @@ class _EditorWidgetState extends State<EditorWidget> {
 
   @override
   void dispose() {
+    _cursorTimer?.cancel();
     _currentController?.removeListener(_updateCursor);
     _editorService.removeListener(_update);
     super.dispose();
@@ -37,23 +40,33 @@ class _EditorWidgetState extends State<EditorWidget> {
       _currentController = newActive?.controller;
       _currentController?.addListener(_updateCursor);
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void _updateCursor() {
-    final active = _editorService.activeFile;
-    if (active == null) return;
+    _cursorTimer?.cancel();
+    _cursorTimer = Timer(const Duration(milliseconds: 50), () {
+      final active = _editorService.activeFile;
+      if (active == null) return;
 
-    final selection = active.controller.selection;
-    final text = active.controller.text;
+      final sel = active.controller.selection;
+      if (!sel.isValid || !sel.isCollapsed) return;
 
-    if (selection.isValid && selection.isCollapsed) {
-      int offset = selection.baseOffset;
-      List<String> lines = text.substring(0, offset).split('\n');
-      int line = lines.length;
-      int col = lines.last.length + 1;
+      final text = active.controller.text;
+      final offset = sel.baseOffset.clamp(0, text.length);
+
+      // Column: count characters after last newline
+      final lastNl = text.lastIndexOf('\n', offset == 0 ? 0 : offset - 1);
+      final col = offset - (lastNl + 1) + 1;
+
+      // Line: count newlines without string split (allocation-free)
+      int line = 1;
+      for (int i = 0; i < offset; i++) {
+        if (text.codeUnitAt(i) == 10) line++; // ASCII 10 = '\n'
+      }
+
       _editorService.updateCursorPosition(line, col);
-    }
+    });
   }
 
   @override

@@ -17,13 +17,16 @@ class _TerminalWidgetState extends State<TerminalWidget> {
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
 
+  bool _isScrollThrottled = false;
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 100,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+    if (_scrollController.hasClients && !_isScrollThrottled) {
+      _isScrollThrottled = true;
+      // Using jumpTo instead of animateTo for performance during high-volume output
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      
+      Future.delayed(const Duration(milliseconds: 50), () {
+        _isScrollThrottled = false;
+      });
     }
   }
 
@@ -32,7 +35,10 @@ class _TerminalWidgetState extends State<TerminalWidget> {
     return ListenableBuilder(
       listenable: TerminalService(),
       builder: (context, _) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+        // Only trigger scroll if terminal panel is visible and active
+        if (widget.layout.isBottomPanelVisible) {
+           _scrollToBottom();
+        }
 
         return Container(
           color: KetTheme.bgCanvas,
@@ -71,28 +77,26 @@ class _TerminalWidgetState extends State<TerminalWidget> {
 
               // LOGS
               Expanded(
-                child: SingleChildScrollView(
+                child: ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(12),
-                  child: SelectableText.rich(
-                    TextSpan(
-                      children: TerminalService().logs.map((log) {
-                        return TextSpan(
-                          text: "$log\n",
-                          style: TextStyle(
-                            color: log.startsWith('⚠️') || log.startsWith('❌')
-                                ? Colors.red
-                                : log.startsWith('KET_VIZ')
-                                ? Colors.blue
-                                : KetTheme.textMain,
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            height: 1.3,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                  itemCount: TerminalService().logs.length,
+                  itemBuilder: (context, index) {
+                    final log = TerminalService().logs[index];
+                    return Text(
+                      log,
+                      style: TextStyle(
+                        color: log.startsWith('⚠️') || log.startsWith('❌')
+                            ? Colors.red
+                            : log.startsWith('KET_VIZ')
+                            ? Colors.blue
+                            : KetTheme.textMain,
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    );
+                  },
                 ),
               ),
 

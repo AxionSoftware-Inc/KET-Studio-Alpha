@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter/scheduler.dart';
 
 enum VizStatus { idle, running, hasOutput, error, stopped }
 
@@ -43,6 +45,7 @@ class VizSession {
 
   void addEvent(VizEvent event) {
     events.add(event);
+    if (events.length > 50) events.removeAt(0);
     status = VizStatus.hasOutput;
   }
 }
@@ -73,6 +76,19 @@ class VizService extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _notifyScheduled = false;
+
+  @override
+  void notifyListeners() {
+    if (_notifyScheduled) return;
+    _notifyScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyScheduled = false;
+      if (hasListeners) super.notifyListeners();
+    });
+  }
+
   void updateData(VizType type, dynamic payload) {
     if (_currentSession == null) return;
 
@@ -84,8 +100,19 @@ class VizService extends ChangeNotifier {
 
     _currentSession!.addEvent(event);
     _status = VizStatus.hasOutput;
-    notifyListeners();
+    
+    // Throttled notification to avoid freezing UI with rapid updates
+    if (!_isUpdateThrottled) {
+      _isUpdateThrottled = true;
+      notifyListeners();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _isUpdateThrottled = false;
+        notifyListeners();
+      });
+    }
   }
+
+  bool _isUpdateThrottled = false;
 
   void endSession({int exitCode = 0, String? error}) {
     if (_currentSession == null) return;

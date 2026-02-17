@@ -137,17 +137,37 @@ class _InspectorWidgetState extends State<InspectorWidget> {
 
                 // Qubit States
                 Center(
-                  child: Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    alignment: WrapAlignment.center,
-                    children: (frame['bloch'] as List<dynamic>? ?? [])
-                        .asMap()
-                        .entries
-                        .map((entry) {
-                          return _buildBlochSphere(entry.key, entry.value);
-                        })
-                        .toList(),
+                  child: Builder(
+                    builder: (context) {
+                      final blochList = (frame['bloch'] as List<dynamic>? ?? []);
+                      final displayList = blochList.take(20).toList();
+                      final isTruncated = blochList.length > 20;
+
+                      return Column(
+                        children: [
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            alignment: WrapAlignment.center,
+                            children: displayList.asMap().entries.map((entry) {
+                              return _buildBlochSphere(entry.key, entry.value);
+                            }).toList(),
+                          ),
+                          if (isTruncated)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16.0),
+                              child: Text(
+                                "* Showing first 20 of ${blochList.length} qubits to maintain performance.",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontStyle: FontStyle.italic,
+                                  color: KetTheme.textMuted,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
 
@@ -210,23 +230,25 @@ class _InspectorWidgetState extends State<InspectorWidget> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
         ),
         const SizedBox(height: 8),
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: KetTheme.textMuted.withValues(alpha: 0.3),
+        RepaintBoundary(
+          child: Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: KetTheme.textMuted.withValues(alpha: 0.3),
+              ),
+              gradient: RadialGradient(
+                colors: [
+                  KetTheme.accent.withValues(alpha: 0.1),
+                  Colors.transparent,
+                ],
+              ),
             ),
-            gradient: RadialGradient(
-              colors: [
-                KetTheme.accent.withValues(alpha: 0.1),
-                Colors.transparent,
-              ],
+            child: CustomPaint(
+              painter: BlochPainter(theta, phi, KetTheme.accent),
             ),
-          ),
-          child: CustomPaint(
-            painter: BlochPainter(theta, phi, KetTheme.accent),
           ),
         ),
       ],

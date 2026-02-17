@@ -10,8 +10,8 @@ void setupPlugins() {
 
   registry.register(ExplorerPlugin());
   registry.register(VisualizationPlugin());
-  registry.register(VizHistoryPlugin());
   registry.register(CircuitInspectorPlugin());
+  registry.register(VizHistoryPlugin());
 
   // 3. kelajakda...
   // registry.register(MyNewAIPlugin());

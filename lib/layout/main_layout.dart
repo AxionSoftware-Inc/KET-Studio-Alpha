@@ -34,26 +34,38 @@ class _MainLayoutState extends State<MainLayout> {
   void initState() {
     super.initState();
     _layout.addListener(() => setState(() {}));
-
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setupCommands(context);
       if (MenuService().menus.isEmpty) setupMenus(context);
-
-      // Auto-setup Qiskit environment
-      if (!_layout.isBottomPanelVisible) {
-        _layout.toggleBottomPanel();
-      }
       PythonSetupService().checkAndInstallDependencies();
-
-      // Handle First Run / Welcome Demo
       AppService().initialize();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (MenuService().menus.isEmpty) setupMenus(context);
+    return Container(
+      color: KetTheme.bgCanvas,
+      child: Column(
+        children: [
+          const TopBar(),
+          Expanded(
+            child: Row(
+              children: [
+                ActivityBar(isLeft: true, layout: _layout),
+                Expanded(child: _buildMainContent()),
+                ActivityBar(isLeft: false, layout: _layout),
+              ],
+            ),
+          ),
+          StatusBar(layout: _layout),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildMainContent() {
     final activeLeft = _layout.activeLeftPanelId != null
         ? PluginRegistry().getPanel(_layout.activeLeftPanelId!)
         : null;
@@ -61,85 +73,39 @@ class _MainLayoutState extends State<MainLayout> {
         ? PluginRegistry().getPanel(_layout.activeRightPanelId!)
         : null;
 
-    return Container(
-      color: KetTheme.bgCanvas,
-      child: Column(
-        children: [
-          TopBar(),
-
-          Expanded(
-            child: Row(
-              children: [
-                ActivityBar(isLeft: true, layout: _layout),
-                Expanded(child: _buildCentralSplit(activeLeft, activeRight)),
-                ActivityBar(isLeft: false, layout: _layout),
-              ],
-            ),
+    // Horizontal structure: [Left Panel] [Divider] [Editor] [Divider] [Right Panel]
+    Widget horizontalView = Row(
+      children: [
+        if (activeLeft != null)
+          SizedBox(
+            width: 250,
+            child: PanelHeader(panel: activeLeft, child: activeLeft.buildContent(context)),
           ),
-
-          StatusBar(layout: _layout),
-        ],
-      ),
+        if (activeLeft != null) Container(width: 1, color: Colors.black),
+        
+        const Expanded(child: EditorWidget()),
+        
+        if (activeRight != null) Container(width: 1, color: Colors.black),
+        if (activeRight != null)
+          SizedBox(
+            width: 300,
+            child: PanelHeader(panel: activeRight, child: activeRight.buildContent(context)),
+          ),
+      ],
     );
-  }
-
-  Widget _buildCentralSplit(ISidePanel? left, ISidePanel? right) {
-    List<Area> hAreas = [];
-
-    if (left != null) {
-      hAreas.add(
-        Area(
-          data: PanelHeader(panel: left, child: left.buildContent(context)),
-          size: 250,
-        ),
-      );
-    }
-
-    hAreas.add(Area(data: const EditorWidget(), flex: 1));
-
-    if (right != null) {
-      hAreas.add(
-        Area(
-          data: PanelHeader(panel: right, child: right.buildContent(context)),
-          size: 300,
-        ),
-      );
-    }
-
-    Widget horizontalView;
-    if (hAreas.length == 1) {
-      horizontalView = hAreas.first.data as Widget;
-    } else {
-      horizontalView = MultiSplitViewTheme(
-        data: MultiSplitViewThemeData(
-          dividerThickness: 1,
-          dividerPainter: DividerPainters.background(color: Colors.black),
-        ),
-        child: MultiSplitView(
-          // Use a key that only changes when the number/type of panels change
-          key: ValueKey("H-SP-${hAreas.length}-${left?.id}-${right?.id}"),
-          initialAreas: hAreas,
-          builder: (context, area) => area.data as Widget,
-        ),
-      );
-    }
 
     if (!_layout.isBottomPanelVisible) return horizontalView;
 
-    return MultiSplitViewTheme(
-      data: MultiSplitViewThemeData(
-        dividerThickness: 1,
-        dividerPainter: DividerPainters.background(color: Colors.black),
-      ),
-      child: MultiSplitView(
-        axis: Axis.vertical,
-        key: ValueKey("V-SP-${_layout.isBottomPanelVisible}"),
-        initialAreas: [
-          Area(data: horizontalView, flex: 1),
-          Area(data: TerminalWidget(layout: _layout), size: 180),
-        ],
-        builder: (context, area) => area.data as Widget,
-      ),
+    // Vertical structure: [Horizontal View] [Divider] [Terminal]
+    return Column(
+      children: [
+        Expanded(child: horizontalView),
+        Container(height: 1, color: Colors.black),
+        SizedBox(
+          height: 200,
+          child: TerminalWidget(layout: _layout),
+        ),
+      ],
     );
   }
 }

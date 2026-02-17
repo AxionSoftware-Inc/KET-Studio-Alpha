@@ -20,123 +20,201 @@ class QuantumTemplate {
 class TemplateService {
   static final List<QuantumTemplate> templates = [
     QuantumTemplate(
-      id: 'bell_state_inspector',
-      title: 'Bell State (Inspector)',
-      description: 'Step-by-step analysis of creating entanglement.',
+      id: 'bell_state_demo',
+      title: 'Bell State (Entanglement)',
+      description: 'The fundamental example of quantum entanglement.',
       icon: FluentIcons.reading_mode,
-      content: '''import math
-import time
+      content: '''# === Bell State Preparation ===
+# This script demonstrates creating entanglement between two qubits.
+import math
+import ket_viz
 
-print("Analyzing Bell State preparation...")
-
-# Define frames for step-by-step visualization
+print("--- Step 1: Initialize System ---")
+# Each frame shows the state of the qubits at a specific point in time.
 frames = [
-    {"gate": "Init", "description": "Start at |00>", "bloch": [{"theta": 0, "phi": 0}, {"theta": 0, "phi": 0}]},
-    {"gate": "H q0", "description": "Qubit 0 into superposition", "bloch": [{"theta": math.pi/2, "phi": 0}, {"theta": 0, "phi": 0}]},
-    {"gate": "CNOT q0,q1", "description": "Entanglement created", "bloch": [{"theta": math.pi/2, "phi": 0}, {"theta": math.pi/2, "phi": 0}]}
+    {
+        "gate": "INIT", 
+        "description": "Both qubits start in the |0> state.", 
+        "bloch": [{"theta": 0, "phi": 0}, {"theta": 0, "phi": 0}]
+    },
+    {
+        "gate": "H(q0)", 
+        "description": "Apply Hadamard to q0 to create superposition: (|0> + |1>)/sqrt(2)", 
+        "bloch": [{"theta": math.pi/2, "phi": 0}, {"theta": 0, "phi": 0}]
+    },
+    {
+        "gate": "CNOT(q0, q1)", 
+        "description": "Entangle q1 with q0. Final state: (|00> + |11>)/sqrt(2)", 
+        "bloch": [{"theta": math.pi/2, "phi": 0}, {"theta": math.pi/2, "phi": 0}]
+    }
 ]
 
-ket_inspector("Bell State Process", frames)
-ket_histogram({"00": 512, "11": 512}, title="Final Measurement")
-print("Data sent to Inspector and Visualizer.")''',
+# Send the frames to the Circuit Inspector panel.
+ket_viz.inspector("Bell State Evolution", frames)
+
+# Show the predicted measurement results in a histogram.
+print("--- Step 2: Final Measurement ---")
+results = {"00": 512, "11": 512}
+ket_viz.histogram(results, title="Theoretical Probabilities")
+
+print("Visualization data sent successfully.")''',
     ),
     QuantumTemplate(
       id: 'grover_search',
-      title: "Grover's Search",
-      description: 'Visualization of amplitude amplification iterations.',
+      title: "Grover's Algorithm",
+      description: 'Quantum search algorithm showing amplitude amplification.',
       icon: FluentIcons.search_and_apps,
-      content: '''import math
+      content: '''# === Grover's Search Algorithm ===
+# Locating a target element in an unsorted database.
+import math
 import time
+import ket_viz
 
-print("Running Grover's Algorithm Demo...")
+print("Initializing Grover's Search for N=8...")
 
-# 1. Show final histogram
+# Simulation of 3 iterations of amplitude amplification.
 for i in range(1, 4):
+    print(f"Iteration {i} in progress...")
+    # Probability of the target state '101' increases each step.
     prob = 0.3 * i
-    results = {"101": int(1024 * prob), "others": int(1024 * (1-prob)/7)}
-    ket_histogram(results, title=f"Iteration {i}")
+    results = {
+        "101": int(1024 * prob), 
+        "others": int(1024 * (1-prob)/7)
+    }
+    # Each iteration update is sent to the Live Viz panel.
+    ket_viz.histogram(results, title=f"Grover Iteration {i}")
     time.sleep(0.5)
 
-# 2. Show internal state for one step
-ket_inspector("Grover State", [
-    {"gate": "Oracle", "description": "Target state marked with negative phase", "bloch": [{"theta": math.pi/2, "phi": math.pi}]}
+# Example of a single qubit state during the oracle application.
+# The phase of the target state is flipped.
+ket_viz.inspector("Oracle Phase Flip", [
+    {
+        "gate": "Oracle", 
+        "description": "Target state marked with negative phase.", 
+        "bloch": [{"theta": math.pi/2, "phi": math.pi}]
+    }
 ])
 ''',
     ),
     QuantumTemplate(
       id: 'vqe_optimization',
       title: "VQE Optimizer",
-      description: 'Track energy convergence in the Dashboard.',
+      description: 'Track energy minimization in real-time with charts.',
       icon: FluentIcons.test_beaker,
-      content: '''import time
+      content: '''# === Variational Quantum Eigensolver (VQE) ===
+# This script simulates iterative energy minimization and visualizes convergence.
+import time
+import math
+import ket_viz
 
-print("VQE Energy Minimization...")
+print("Starting VQE Optimization loop...")
 
-for i in range(10):
-    energy = -1.13 + (1.0/(i+1))
-    print(f"Step {i}: Energy = {energy:.4f} Ha")
-    ket_text(f"Iteration {i}: Energy {energy:.4f}")
-    time.sleep(0.3)
+# Initial data for convergence chart
+energy_history = []
+target_energy = -1.1372
+current_energy = 0.5
 
-ket_text("Optimization Complete: -1.136 Ha")''',
+for i in range(40):
+    # Simulated convergence math
+    current_energy = target_energy + (abs(target_energy - current_energy) * 0.85)
+    energy_history.append(current_energy)
+    
+    # Send only latest state to avoid flooding
+    normalized_chart = [(energy + 2.0)/4.0 for energy in energy_history]
+    ket_viz.chart(normalized_chart)
+    
+    if i % 5 == 0:
+        print(f"Iteration {i}: E = {current_energy:.6f} Ha")
+    
+    time.sleep(0.05)
+
+print(f"Optimization Complete. Ground State: {current_energy:.6f} Ha")
+''',
     ),
     QuantumTemplate(
       id: 'qaoa_landscape',
-      title: "QAOA Landscape",
-      description: 'Heatmap visualization of the cost function.',
+      title: "QAOA Cost Landscape",
+      description: '2D Heatmap of the optimization surface.',
       icon: FluentIcons.iot,
-      content: '''print("Generating QAOA Cost Landscape...")
+      content: '''# === QAOA Landscape Visualization ===
+# Visualizing the cost function surface as a heatmap.
+import ket_viz
 
-matrix = [
-    [0.1, 0.2, 0.8, 0.3],
-    [0.2, 0.9, 0.1, 0.1],
-    [0.8, 0.1, 0.0, 0.7],
-    [0.3, 0.1, 0.7, 0.2]
+print("Generating 2D optimization landscape...")
+
+# 4x4 sample data representing the cost landscape for different parameters.
+landscape = [
+    [0.12, 0.45, 0.88, 0.32],
+    [0.23, 0.95, 0.41, 0.15],
+    [0.78, 0.12, 0.05, 0.67],
+    [0.34, 0.21, 0.72, 0.28]
 ]
 
-ket_heatmap(matrix, title="QAOA Optimization Surface")
-print("Landscape data sent.")''',
+# Send the matrix to be rendered as a Heatmap.
+ket_viz.heatmap(landscape, title="Cost Function Surface (Beta/Gamma)")
+
+print("Heatmap generated in the Live Viz panel.")''',
     ),
     QuantumTemplate(
-      id: 'quantum_teleportation',
+      id: 'teleportation_protocol',
       title: "Quantum Teleportation",
-      description: 'Comprehensive inspector demonstration with 3 qubits.',
+      description: 'Send qubit state using entanglement and classical bits.',
       icon: FluentIcons.cell_phone,
-      content: '''import math
+      content: '''# === Quantum Teleportation Protocol ===
+# Moving a quantum state from Alice to Bob.
+import math
+import ket_viz
 
-print("Visualizing Teleportation Circuit...")
+print("Simulating Teleportation protocol...")
 
+# frames define the state evolution of the 3-qubit system.
 frames = [
     {
-        "gate": "Alice State", 
-        "description": "Prepare state to be teleported", 
+        "gate": "Alice: Init", 
+        "description": "Alice prepares the state |psi> to be sent.", 
         "bloch": [{"theta": 1.2, "phi": 0.5}, {"theta": 0, "phi": 0}, {"theta": 0, "phi": 0}]
     },
     {
-        "gate": "Entangle", 
-        "description": "Create Bell pair between Alice and Bob", 
+        "gate": "Bell Pair", 
+        "description": "Create entanglement between q1 and q2.", 
         "bloch": [{"theta": 1.2, "phi": 0.5}, {"theta": math.pi/2, "phi": 0}, {"theta": math.pi/2, "phi": 0}]
     },
     {
-        "gate": "Teleport", 
-        "description": "State transferred to Bob's qubit (q2)", 
+        "gate": "Teleported!", 
+        "description": "State of q0 has been moved to q2 (Bob).", 
         "bloch": [{"theta": 0, "phi": 0}, {"theta": 0, "phi": 0}, {"theta": 1.2, "phi": 0.5}]
     }
 ]
 
-ket_inspector("Teleportation Protocol", frames)''',
+# Send to Inspector for step-by-step review.
+ket_viz.inspector("Teleportation Process", frames)
+print("Teleportation complete.")''',
     ),
     QuantumTemplate(
-      id: 'noise_simulation',
-      title: "Noise Analysis",
-      description: 'Dashboard histogram for noisy qubits.',
+      id: 'error_correction',
+      title: "Error Correction (Bit Flip)",
+      description: 'Visualization of a 3-qubit bit-flip code.',
       icon: FluentIcons.error_badge,
-      content: '''import random
+      content: '''# === 3-Qubit Bit-Flip Code ===
+# Protecting a qubit against noise.
+import ket_viz
 
-print("Simulating T1/T2 Noise...")
-results = {"00": 450, "11": 450, "10": 60, "01": 64}
-ket_histogram(results, title="Noisy Bell State")
-print("Noise profile sent to visualizer.")''',
+print("Running Noise Simulation...")
+
+# Simulation of measurement outcomes with noise.
+# We correctly identify the majority even with errors.
+results = {
+    "000": 850,  # Correct state
+    "100": 50,   # Error on q0
+    "010": 60,   # Error on q1
+    "001": 64    # Error on q2
+}
+
+# The Visualizer handles the resulting probability distribution.
+ket_viz.histogram(results, title="Noisy Encoding Results")
+
+ket_viz.text("Status: Error corrected via majority vote on q0, q1, q2.")
+print("Simulation finished.")''',
     ),
   ];
 

@@ -1,5 +1,6 @@
-import 'dart:io'; // <--- BU ENG MUHIM IMPORT (Disk bilan ishlash uchun)
+import 'dart:io'; 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:code_text_field/code_text_field.dart';
 import 'package:highlight/languages/python.dart';
 import 'package:highlight/languages/dart.dart';
@@ -161,5 +162,23 @@ class EditorService extends ChangeNotifier {
     _activeFileIndex = -1;
     hasActiveFile.value = false;
     notifyListeners();
+  }
+
+  bool _notifyScheduled = false;
+
+  @override
+  void notifyListeners() {
+    if (_notifyScheduled) return;
+
+    final phase = WidgetsBinding.instance.schedulerPhase;
+    if (phase != SchedulerPhase.idle) {
+      _notifyScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _notifyScheduled = false;
+        super.notifyListeners();
+      });
+    } else {
+      super.notifyListeners();
+    }
   }
 }

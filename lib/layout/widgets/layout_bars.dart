@@ -26,7 +26,7 @@ class TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 35, // macOS-like compact height
+      height: 35,
       decoration: BoxDecoration(
         color: KetTheme.bgSidebar,
         border: Border(
@@ -35,18 +35,63 @@ class TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // App Icon & Brand
+          // 1. LEFT - BRAND & MENUS (Interactive)
           Padding(
             padding: const EdgeInsets.only(left: 12.0, right: 8.0),
-            child: Image.asset(
-              'assets/quantum.jpg',
-              width: 20,
-              height: 20,
-              fit: BoxFit.contain,
-            ),
+            child: Image.asset('assets/quantum.jpg', width: 20, height: 20),
           ),
 
-          // INSTALLATIONS STATUS (stays visible when active)
+          // Main Menus
+          ListenableBuilder(
+            listenable: Listenable.merge([
+              MenuService(),
+              CommandService(),
+              EditorService(),
+              ExecutionService().isRunning,
+            ]),
+            builder: (context, _) {
+              return Row(
+                children: MenuService().menus.map((group) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                    child: DropDownButton(
+                      title: Text(group.title, style: KetTheme.menuStyle),
+                      trailing: const SizedBox.shrink(),
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.isHovered) return KetTheme.bgHover;
+                          return Colors.transparent;
+                        }),
+                        shape: WidgetStateProperty.all(RoundedRectangleBorder(
+                          side: BorderSide.none,
+                          borderRadius: BorderRadius.zero,
+                        )),
+                        padding: WidgetStateProperty.all(const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        )),
+                      ),
+                      items: group.items.map((item) {
+                        if (item.isSeparator) return const MenuFlyoutSeparator();
+                        final cmd = item.command;
+                        if (cmd == null) return const MenuFlyoutSeparator();
+                        return MenuFlyoutItem(
+                          leading: cmd.icon != null ? Icon(cmd.icon, size: 14) : null,
+                          text: Text(item.label, style: KetTheme.menuStyle),
+                          onPressed: (cmd.isEnabled == null || cmd.isEnabled!()) ? cmd.action : null,
+                          trailing: cmd.shortcut != null
+                              ? Text(cmd.shortcut!, style: KetTheme.menuStyle.copyWith(color: KetTheme.textMuted, fontSize: 10))
+                              : null,
+                        );
+                      }).toList(),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          
+          // Python Status
           ValueListenableBuilder<String?>(
             valueListenable: PythonSetupService().currentTask,
             builder: (context, task, child) {
@@ -54,108 +99,22 @@ class TopBar extends StatelessWidget {
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: ProgressRing(strokeWidth: 1.5),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      task.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                child: Row(children: [
+                  const SizedBox(width: 10, height: 10, child: ProgressRing(strokeWidth: 1.5)),
+                  const SizedBox(width: 6),
+                  Text(task.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
+                ]),
               );
             },
           ),
 
-          // Main Menu Section
+          // 2. CENTER - DRAG AREA (Non-interactive)
           Expanded(
-            child: MoveWindow(
-              child: ListenableBuilder(
-                listenable: Listenable.merge([
-                  MenuService(),
-                  CommandService(),
-                  EditorService(),
-                  ExecutionService().isRunning,
-                ]),
-                builder: (context, _) {
-                  return Row(
-                    children: MenuService().menus.map((group) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                        child: DropDownButton(
-                          title: Text(group.title, style: KetTheme.menuStyle),
-                          trailing:
-                              const SizedBox.shrink(), // No arrow (macOS style)
-                          style: ButtonStyle(
-                            backgroundColor: WidgetStateProperty.resolveWith((
-                              states,
-                            ) {
-                              if (states.isHovered) return KetTheme.bgHover;
-                              return Colors.transparent;
-                            }),
-                            shape: WidgetStateProperty.all(
-                              const RoundedRectangleBorder(
-                                side: BorderSide.none,
-                                borderRadius: BorderRadius.zero,
-                              ),
-                            ),
-                            padding: WidgetStateProperty.all(
-                              const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                            ),
-                          ),
-                          items: group.items.map((item) {
-                            if (item.isSeparator) {
-                              return const MenuFlyoutSeparator();
-                            }
-                            final cmd = item.command;
-                            if (cmd == null) return const MenuFlyoutSeparator();
-
-                            return MenuFlyoutItem(
-                              leading: cmd.icon != null
-                                  ? Icon(cmd.icon, size: 14)
-                                  : null,
-                              text: Text(item.label, style: KetTheme.menuStyle),
-                              onPressed:
-                                  (cmd.isEnabled == null || cmd.isEnabled!())
-                                  ? cmd.action
-                                  : null,
-                              trailing: cmd.shortcut != null
-                                  ? Text(
-                                      cmd.shortcut!,
-                                      style: KetTheme.menuStyle.copyWith(
-                                        color: KetTheme.textMuted,
-                                        fontSize: 10,
-                                      ),
-                                    )
-                                  : null,
-                            );
-                          }).toList(),
-                        ),
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
-            ),
+            child: MoveWindow(child: SizedBox.expand()),
           ),
 
-          // PRO RUN BUTTON & CONTROLS
+          // 3. RIGHT - ACTIONS (Interactive)
           ValueListenableBuilder<bool>(
             valueListenable: ExecutionService().isRunning,
             builder: (context, running, child) {
@@ -167,49 +126,27 @@ class TopBar extends StatelessWidget {
                       child: Tooltip(
                         message: "Stop Execution",
                         child: IconButton(
-                          icon: const Icon(
-                            FluentIcons.stop,
-                            color: Color(0xFFFF0000),
-                            size: 16,
-                          ),
+                          icon: const Icon(FluentIcons.stop, color: Color(0xFFFF0000), size: 16),
                           onPressed: () => ExecutionService().stop(),
                         ),
                       ),
                     ),
-
-                  // Primary Run Button
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: FilledButton(
                       onPressed: running ? null : _handleRun,
                       style: ButtonStyle(
-                        backgroundColor: WidgetStateProperty.resolveWith((
-                          states,
-                        ) {
-                          if (running) {
-                            return Colors.grey.withValues(alpha: 0.2);
-                          }
-                          if (states.isHovered) {
-                            return Colors.green.withValues(alpha: 0.8);
-                          }
+                        backgroundColor: WidgetStateProperty.resolveWith((states) {
+                          if (running) return Colors.grey.withValues(alpha: 0.2);
+                          if (states.isHovered) return Colors.green.withValues(alpha: 0.8);
                           return Colors.green;
                         }),
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            running
-                                ? FluentIcons.progress_ring_dots
-                                : FluentIcons.play,
-                            size: 14,
-                            color: Colors.white,
-                          ),
+                          Icon(running ? FluentIcons.progress_ring_dots : FluentIcons.play, size: 14, color: Colors.white),
                           const SizedBox(width: 8),
-                          const Text(
-                            "RUN",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          const Text("RUN", style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -219,7 +156,6 @@ class TopBar extends StatelessWidget {
             },
           ),
 
-          // Settings Button
           Tooltip(
             message: "Settings (Ctrl+,)",
             child: IconButton(
@@ -227,12 +163,9 @@ class TopBar extends StatelessWidget {
               onPressed: () => CommandService().execute("settings.open"),
             ),
           ),
-
           const SizedBox(width: 8),
           const Divider(direction: Axis.vertical),
           const SizedBox(width: 8),
-
-          // Window Buttons
           const WindowButtons(),
         ],
       ),
@@ -246,9 +179,11 @@ class MoveWindow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanStart: (details) => windowManager.startDragging(),
-      child: Container(color: Colors.transparent, child: child),
+    return DragToMoveArea(
+      child: Container(
+        color: Colors.transparent,
+        child: child,
+      ),
     );
   }
 }
@@ -330,66 +265,69 @@ class ActivityBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final panels = isLeft
-        ? PluginRegistry().leftPanels
-        : PluginRegistry().rightPanels;
-    if (panels.isEmpty) return const SizedBox();
+    return ListenableBuilder(
+      listenable: layout,
+      builder: (context, _) {
+        final panels = isLeft
+            ? PluginRegistry().leftPanels
+            : PluginRegistry().rightPanels;
+        if (panels.isEmpty) return const SizedBox();
 
-    return Container(
-      width: 48, // Compact width
-      decoration: BoxDecoration(
-        color: KetTheme.bgActivityBar,
-        border: Border(
-          right: isLeft
-              ? BorderSide(color: Colors.black.withValues(alpha: 0.2), width: 1)
-              : BorderSide.none,
-          left: !isLeft
-              ? BorderSide(color: Colors.black.withValues(alpha: 0.2), width: 1)
-              : BorderSide.none,
-        ),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          ...panels.map((panel) {
-            bool isActive = isLeft
-                ? layout.activeLeftPanelId == panel.id
-                : layout.activeRightPanelId == panel.id;
+        return Container(
+          width: 48,
+          decoration: BoxDecoration(
+            color: KetTheme.bgActivityBar,
+            border: Border(
+              right: isLeft
+                  ? BorderSide(color: Colors.black.withValues(alpha: 0.2), width: 1)
+                  : BorderSide.none,
+              left: !isLeft
+                  ? BorderSide(color: Colors.black.withValues(alpha: 0.2), width: 1)
+                  : BorderSide.none,
+            ),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              ...panels.map((panel) {
+                bool isActive = isLeft
+                    ? layout.activeLeftPanelId == panel.id
+                    : layout.activeRightPanelId == panel.id;
 
-            return SizedBox(
-              height: 48,
-              width: 48,
-              child: Stack(
-                alignment: isLeft
-                    ? Alignment.centerLeft
-                    : Alignment.centerRight,
-                children: [
-                  if (isActive)
-                    Container(width: 2, height: 28, color: KetTheme.accent),
-                  Center(
-                    child: Tooltip(
-                      message: panel.title,
-                      child: IconButton(
-                        icon: Icon(
-                          panel.icon,
-                          color: isActive ? Colors.white : KetTheme.textMuted,
-                          size: 18, // Professional VS Code-like size
-                        ),
-                        onPressed: () => isLeft
-                            ? layout.toggleLeftPanel(panel.id)
-                            : layout.toggleRightPanel(panel.id),
-                        style: ButtonStyle(
-                          padding: WidgetStateProperty.all(EdgeInsets.zero),
+                return SizedBox(
+                  height: 48,
+                  width: 48,
+                  child: Stack(
+                    alignment: isLeft ? Alignment.centerLeft : Alignment.centerRight,
+                    children: [
+                      if (isActive) Container(width: 2, height: 28, color: KetTheme.accent),
+                      Center(
+                        child: Tooltip(
+                          message: panel.title,
+                          child: IconButton(
+                            icon: Icon(
+                              panel.icon,
+                              color: isActive ? Colors.white : KetTheme.textMuted,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              if (isLeft) {
+                                layout.toggleLeftPanel(panel.id);
+                              } else {
+                                layout.toggleRightPanel(panel.id);
+                              }
+                            },
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -469,7 +407,7 @@ class StatusBar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: Text(
                     "Ln ${editor.cursorLine}, Col ${editor.cursorColumn}",
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                    style: TextStyle(color: Colors.white, fontSize: 11),
                   ),
                 ),
 
@@ -493,7 +431,7 @@ class StatusBar extends StatelessWidget {
                         ],
                         Text(
                           running ? "Python Running" : "Ready",
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,

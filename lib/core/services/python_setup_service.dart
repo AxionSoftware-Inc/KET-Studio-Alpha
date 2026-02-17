@@ -27,7 +27,7 @@ class PythonSetupService {
 
     try {
       // 1. Check Python version
-      var result = await shell.run('python --version');
+      var result = await shell.run('python --version').timeout(const Duration(seconds: 5));
       final versionOutput = result.first.stdout.toString().trim();
       terminal.write("Python found: $versionOutput");
 
@@ -48,12 +48,17 @@ class PythonSetupService {
 
         terminal.write("Checking $lib...");
         try {
-          await shell.run('pip show $lib');
+          // Use --no-cache-dir and --progress-bar off for reliability in IDEs
+          await shell.run('pip show $lib').timeout(const Duration(seconds: 10));
           terminal.write("$lib is already installed.");
         } catch (e) {
           terminal.write("$lib not found. Installing...");
-          await shell.run('pip install $lib');
-          terminal.write("$lib installation completed.");
+          try {
+            await shell.run('pip install $lib --progress-bar off --no-input').timeout(const Duration(minutes: 5));
+            terminal.write("$lib installation completed.");
+          } catch (err) {
+            terminal.write("⚠️ Could not install $lib. Some features may not work.");
+          }
         }
       }
 
