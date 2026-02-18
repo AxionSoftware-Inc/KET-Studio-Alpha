@@ -57,7 +57,8 @@ class _SettingsWidgetState extends State<SettingsWidget> {
             Wrap(
               spacing: 10,
               children: settings.availableAccents.map((color) {
-                bool isSelected = settings.accentColor.value == color.value;
+                bool isSelected =
+                    settings.accentColor.toARGB32() == color.toARGB32();
                 return GestureDetector(
                   onTap: () => settings.setAccentColor(color),
                   child: Container(

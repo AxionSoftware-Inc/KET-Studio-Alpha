@@ -23,6 +23,113 @@ class TopBar extends StatelessWidget {
     );
   }
 
+  void _showPackageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => ContentDialog(
+        title: const Text("Python Package Manager"),
+        content: ListenableBuilder(
+          listenable: PythonSetupService(),
+          builder: (context, _) {
+            final setup = PythonSetupService();
+            final allLibs = [
+              ...setup.coreLibraries,
+              ...setup.optionalLibraries,
+            ];
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Manage your quantum environment libraries.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: allLibs.map((lib) {
+                        final name = lib.split('[').first;
+                        final version = setup.packageVersions[name];
+                        final isInstalled = version != null;
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.black.withValues(alpha: 0.1),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isInstalled
+                                    ? FluentIcons.check_mark
+                                    : FluentIcons.circle_addition,
+                                size: 12,
+                                color: isInstalled ? Colors.green : Colors.grey,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      isInstalled
+                                          ? "Version: $version"
+                                          : "Not installed",
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!isInstalled)
+                                Button(
+                                  child: const Text("Install"),
+                                  onPressed: () => setup.installPackage(lib),
+                                )
+                              else
+                                Text(
+                                  "Ready",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          Button(
+            child: const Text("Close"),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -56,7 +163,7 @@ class TopBar extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 2.0),
                     child: DropDownButton(
                       title: Text(group.title, style: KetTheme.menuStyle),
-                      trailing: const SizedBox.shrink(),
+                      trailing: SizedBox.shrink(),
                       style: ButtonStyle(
                         backgroundColor: WidgetStateProperty.resolveWith((
                           states,
@@ -116,6 +223,42 @@ class TopBar extends StatelessWidget {
             builder: (context, running, child) {
               return Row(
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: HoverButton(
+                      onPressed: () => _showPackageDialog(context),
+                      builder: (context, states) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: states.isHovered
+                              ? KetTheme.bgHover
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              FluentIcons.packages,
+                              size: 14,
+                              color: KetTheme.accent,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              "PACKAGES",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                   if (running)
                     Padding(
                       padding: const EdgeInsets.only(right: 8.0),
@@ -210,7 +353,7 @@ class WindowButtons extends StatelessWidget {
           onPressed: () => windowManager.minimize(),
         ),
         WindowButton(
-          icon: FluentIcons.chrome_full_screen, // Alternative to maximize
+          icon: FluentIcons.chrome_full_screen,
           onPressed: () async {
             if (await windowManager.isMaximized()) {
               windowManager.unmaximize();
@@ -253,20 +396,13 @@ class WindowButton extends StatelessWidget {
           color: isHovered
               ? (isClose ? Colors.red : Colors.white.withValues(alpha: 0.1))
               : Colors.transparent,
-          child: Center(
-            child: Icon(
-              icon,
-              size: 12,
-              color: isHovered && isClose ? Colors.white : Colors.white,
-            ),
-          ),
+          child: Center(child: Icon(icon, size: 12, color: Colors.white)),
         );
       },
     );
   }
 }
 
-// 2. ACTIVITY BAR (Side selection)
 class ActivityBar extends StatelessWidget {
   final bool isLeft;
   final LayoutService layout;
@@ -353,10 +489,18 @@ class ActivityBar extends StatelessWidget {
   }
 }
 
-// 3. STATUS BAR
 class StatusBar extends StatelessWidget {
   final LayoutService layout;
   const StatusBar({super.key, required this.layout});
+
+  Widget _buildSeparator() {
+    return Container(
+      width: 1,
+      height: 16,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: Colors.white.withValues(alpha: 0.24),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +521,6 @@ class StatusBar extends StatelessWidget {
           color: KetTheme.accent,
           child: Row(
             children: [
-              // 1. TERMINAL TOGGLE
               HoverButton(
                 onPressed: () => layout.toggleBottomPanel(),
                 builder: (context, states) {
@@ -410,7 +553,6 @@ class StatusBar extends StatelessWidget {
 
               const SizedBox(width: 10),
 
-              // 2. ACTIVE FILE PATH
               if (activeFile != null)
                 Text(
                   activeFile.path.startsWith('/fake')
@@ -424,7 +566,33 @@ class StatusBar extends StatelessWidget {
 
               const Spacer(),
 
-              // 3. PYTHON ENVIRONMENT (HEALTH CHECK)
+              _buildSeparator(),
+
+              if (setup.isSetupComplete)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        FluentIcons.product_variant,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Qiskit: ${setup.qiskitVersion}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              _buildSeparator(),
+
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
@@ -434,9 +602,7 @@ class StatusBar extends StatelessWidget {
                           ? FluentIcons.completed
                           : FluentIcons.sync_status,
                       size: 10,
-                      color: setup.isSetupComplete
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.7),
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 6),
                     ValueListenableBuilder<String?>(
@@ -445,8 +611,8 @@ class StatusBar extends StatelessWidget {
                         return Text(
                           task ??
                               (setup.isSetupComplete
-                                  ? "Environment: Ready"
-                                  : "Environment: Initializing"),
+                                  ? "Env: Ready"
+                                  : "Env: Initializing"),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -459,9 +625,8 @@ class StatusBar extends StatelessWidget {
                 ),
               ),
 
-              const Divider(direction: Axis.vertical),
+              _buildSeparator(),
 
-              // 4. CURSOR POSITION
               if (activeFile != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -471,9 +636,8 @@ class StatusBar extends StatelessWidget {
                   ),
                 ),
 
-              const Divider(direction: Axis.vertical),
+              _buildSeparator(),
 
-              // 5. EXECUTION STATUS
               ValueListenableBuilder<bool>(
                 valueListenable: exec.isRunning,
                 builder: (context, running, _) {
@@ -507,9 +671,8 @@ class StatusBar extends StatelessWidget {
                 },
               ),
 
-              const Divider(direction: Axis.vertical),
+              _buildSeparator(),
 
-              // 6. VERSION
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12.0),
                 child: Text(
@@ -525,7 +688,6 @@ class StatusBar extends StatelessWidget {
   }
 }
 
-// 4. PANEL HEADER
 class PanelHeader extends StatelessWidget {
   final ISidePanel panel;
   final Widget child;

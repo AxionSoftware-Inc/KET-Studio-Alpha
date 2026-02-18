@@ -16,6 +16,26 @@ class PythonSetupService extends ChangeNotifier {
   final ValueNotifier<String?> currentTask = ValueNotifier<String?>(null);
   final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
 
+  // Package Management
+  final Map<String, String?> _packageVersions = {};
+  Map<String, String?> get packageVersions => _packageVersions;
+
+  final List<String> coreLibraries = [
+    'qiskit[visualization]',
+    'qiskit-aer',
+    'numpy',
+  ];
+
+  final List<String> optionalLibraries = [
+    'qiskit-ibm-runtime',
+    'matplotlib',
+    'pylatexenc',
+    'pandas',
+    'scipy',
+  ];
+
+  String get qiskitVersion => _packageVersions['qiskit'] ?? "Not Found";
+
   /// Finds a working system python executable
   Future<String?> _findSystemPython() async {
     final commands = ['python', 'python3', 'py'];
@@ -86,25 +106,15 @@ class PythonSetupService extends ChangeNotifier {
         'pip',
       ]);
 
-      // 6. Check/Install Libraries
-      final libraries = [
-        'qiskit[visualization]', // Includes drawing tools
-        'qiskit-aer',
-        'qiskit-ibm-runtime', // For real hardware access
-        'matplotlib',
-        'pylatexenc',
-        'numpy',
-        'pandas',
-      ];
+      // 6. Check/Install Core Libraries
+      final allToInstall = [...coreLibraries, ...optionalLibraries];
 
-      for (var i = 0; i < libraries.length; i++) {
-        final libFull = libraries[i];
+      for (var i = 0; i < allToInstall.length; i++) {
+        final libFull = allToInstall[i];
         final libName = libFull.split('[').first;
 
-        currentTask.value = "Syncing $libName...";
-        progress.value = 0.2 + (i / libraries.length) * 0.7;
-
-        terminal.write("Checking $libName...");
+        currentTask.value = "Checking $libName...";
+        progress.value = 0.2 + (i / allToInstall.length) * 0.7;
 
         var checkResult = await Process.run(pythonExec, [
           '-m',
@@ -114,27 +124,37 @@ class PythonSetupService extends ChangeNotifier {
         ]);
 
         if (checkResult.exitCode != 0) {
-          terminal.write(
-            "$libName not found. Installing into isolated environment...",
-          );
-          var installResult = await Process.run(pythonExec, [
-            '-m',
-            'pip',
-            'install',
-            '--no-cache-dir',
-            libFull,
-          ]).timeout(const Duration(minutes: 5));
-
-          if (installResult.exitCode == 0) {
-            terminal.write("✅ $libName installed.");
-          } else {
-            terminal.write(
-              "⚠️ Failed to install $libName: ${installResult.stderr}",
-            );
+          _packageVersions[libName] = null;
+          // Only auto-install core libraries if missing
+          if (coreLibraries.contains(libFull)) {
+            terminal.write("Installing core: $libName...");
+            await Process.run(pythonExec, [
+              '-m',
+              'pip',
+              'install',
+              '--no-cache-dir',
+              libFull,
+            ]);
+            // Re-check version after install
+            final reCheck = await Process.run(pythonExec, [
+              '-m',
+              'pip',
+              'show',
+              libName,
+            ]);
+            if (reCheck.exitCode == 0) {
+              _packageVersions[libName] = _parseVersion(
+                reCheck.stdout.toString(),
+              );
+            }
           }
         } else {
-          terminal.write("✅ $libName is ready.");
+          _packageVersions[libName] = _parseVersion(
+            checkResult.stdout.toString(),
+          );
+          terminal.write("✅ $libName: ${_packageVersions[libName]}");
         }
+        notifyListeners();
       }
 
       // 7. Verification Step: Run a tiny Qiskit script to be 100% sure
@@ -172,6 +192,55 @@ except Exception as e:
       terminal.write("FATAL ERROR: $e");
     } finally {
       currentTask.value = null;
+      notifyListeners();
     }
+  }
+
+  String? _parseVersion(String pipShowOutput) {
+    try {
+      final lines = pipShowOutput.split('\n');
+      for (var line in lines) {
+        if (line.startsWith('Version:')) {
+          return line.split(':').last.trim();
+        }
+      }
+    } catch (_) {}
+    return "Ready";
+  }
+
+  Future<void> installPackage(String name) async {
+    final appDir = await getApplicationSupportDirectory();
+    final venvPath = p.join(appDir.path, 'ket_venv');
+    final isWindows = Platform.isWindows;
+    final pythonExec = isWindows
+        ? p.join(venvPath, 'Scripts', 'python.exe')
+        : p.join(venvPath, 'bin', 'python');
+
+    currentTask.value = "Installing $name...";
+    TerminalService().write("Installing $name via pip...");
+
+    final result = await Process.run(pythonExec, [
+      '-m',
+      'pip',
+      'install',
+      name,
+    ]);
+    if (result.exitCode == 0) {
+      TerminalService().write("✅ Successfully installed $name");
+      // Update version
+      final check = await Process.run(pythonExec, [
+        '-m',
+        'pip',
+        'show',
+        name.split('[').first,
+      ]);
+      _packageVersions[name.split('[').first] = _parseVersion(
+        check.stdout.toString(),
+      );
+    } else {
+      TerminalService().write("❌ Failed to install $name: ${result.stderr}");
+    }
+    currentTask.value = null;
+    notifyListeners();
   }
 }

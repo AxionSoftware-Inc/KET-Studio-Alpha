@@ -140,13 +140,14 @@ class _InspectorWidgetState extends State<InspectorWidget> {
                 Center(
                   child: Builder(
                     builder: (context) {
-                      final blochList = (frame['bloch'] as List<dynamic>? ?? []);
+                      final blochList =
+                          (frame['bloch'] as List<dynamic>? ?? []);
                       final count = blochList.length;
-                      
+
                       // Adaptive size and limit
                       double size = 120;
                       int limit = 20;
-                      
+
                       if (count <= 4) {
                         size = 150;
                         limit = 4;
@@ -171,9 +172,11 @@ class _InspectorWidgetState extends State<InspectorWidget> {
                             runSpacing: 12,
                             alignment: WrapAlignment.center,
                             children: displayList.asMap().entries.map((entry) {
-                              final theta = (entry.value['theta'] ?? 0.0).toDouble();
-                              final phi = (entry.value['phi'] ?? 0.0).toDouble();
-                              
+                              final theta = (entry.value['theta'] ?? 0.0)
+                                  .toDouble();
+                              final phi = (entry.value['phi'] ?? 0.0)
+                                  .toDouble();
+
                               return _AdaptiveBlochCard(
                                 index: entry.key,
                                 theta: theta,
@@ -193,7 +196,10 @@ class _InspectorWidgetState extends State<InspectorWidget> {
                                 ),
                                 child: Text(
                                   "⚠️ Showing $limit of ${blochList.length} qubits. High-qubit simulation view is optimized for performance.",
-                                  style: TextStyle(fontSize: 10, color: Colors.orange),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange,
+                                  ),
                                 ),
                               ),
                             ),
@@ -247,11 +253,6 @@ class _InspectorWidgetState extends State<InspectorWidget> {
       ],
     );
   }
-
-  Widget _buildBlochSphere(int index, dynamic data) {
-    // This is now handled by the adaptive builder above
-    return const SizedBox.shrink();
-  }
 }
 
 class _AdaptiveBlochCard extends StatelessWidget {
@@ -272,13 +273,13 @@ class _AdaptiveBlochCard extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (size > 70) 
+        if (size > 70)
           Text(
             "q[$index]",
             style: TextStyle(
-              fontWeight: FontWeight.bold, 
-              fontSize: size > 100 ? 11 : 9, 
-              color: KetTheme.textMuted
+              fontWeight: FontWeight.bold,
+              fontSize: size > 100 ? 11 : 9,
+              color: KetTheme.textMuted,
             ),
           ),
         const SizedBox(height: 4),
@@ -292,4 +293,3 @@ class _AdaptiveBlochCard extends StatelessWidget {
     );
   }
 }
-

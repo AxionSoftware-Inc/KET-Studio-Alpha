@@ -69,7 +69,7 @@ class SettingsService extends ChangeNotifier {
     _accentColor = color;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('accentColor', color.value);
+    await prefs.setInt('accentColor', color.toARGB32());
   }
 
   void setFontSize(double size) async {

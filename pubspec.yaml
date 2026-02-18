@@ -39,6 +39,7 @@ dependencies:
   code_text_field: ^1.1.0
   file_picker: ^10.3.7
   path_provider: ^2.1.5
+  path: ^1.9.1
   process_run: ^1.2.4
   multi_split_view: ^3.6.1
   fluent_ui: ^4.12.0

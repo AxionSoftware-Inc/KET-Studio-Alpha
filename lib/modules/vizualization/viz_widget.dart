@@ -176,127 +176,8 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
       controller: _scrollController,
       padding: const EdgeInsets.all(12),
       itemCount: displayList.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (_, i) => _VizCard(event: displayList[i]),
-    );
-  }
-
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required Widget child,
-    double? height,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          color: KetTheme.bgActivityBar,
-          child: Row(
-            children: [
-              Icon(icon, size: 12, color: KetTheme.accent),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.1,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          height: height,
-          constraints: height == null
-              ? const BoxConstraints(minHeight: 100)
-              : null,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
-            ),
-          ),
-          child: child,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHistoryItem(VizEvent event) {
-    return HoverButton(
-      onPressed: () => VizService().selectEvent(event),
-      builder: (context, states) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: states.isHovered
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.transparent,
-          child: Row(
-            children: [
-              Icon(
-                _getIconForType(event.type),
-                size: 12,
-                color: KetTheme.accent,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                event.type.name.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                event.timeStr,
-                style: const TextStyle(fontSize: 9, color: Colors.grey),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildHeader(VizService service) {
-    return Container(
-      height: 35,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: KetTheme.bgHeader,
-      child: Row(
-        children: [
-          const Icon(FluentIcons.view_dashboard, size: 14, color: Colors.grey),
-          const SizedBox(width: 8),
-          Text("VISUALIZER", style: KetTheme.headerStyle),
-          const Spacer(),
-          DropDownButton(
-            leading: const Icon(FluentIcons.delete, size: 12),
-            items: [
-              MenuFlyoutItem(
-                text: const Text('Clear History'),
-                onPressed: () => service.clearSessions(),
-              ),
-              MenuFlyoutItem(
-                text: const Text('Clear Metrics'),
-                onPressed: () => service.clearMetrics(),
-              ),
-              const MenuFlyoutSeparator(),
-              MenuFlyoutItem(
-                text: const Text('Clear All'),
-                onPressed: () {
-                  service.clearSessions();
-                  service.clearMetrics();
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) => _VizCard(event: displayList[index]),
     );
   }
 
@@ -326,10 +207,6 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
         ],
       ),
     );
-  }
-
-  Widget _buildErrorState(String error) {
-    return _ErrorDisplay(error: error);
   }
 }
 
@@ -876,47 +753,6 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LineChartPainter oldDelegate) => true;
-}
-
-class _TabItem extends StatelessWidget {
-  final String title;
-  final bool isActive;
-  final VoidCallback onTap;
-  const _TabItem({
-    required this.title,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return HoverButton(
-      onPressed: onTap,
-      builder: (context, states) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: isActive ? KetTheme.accent : Colors.transparent,
-                width: 2,
-              ),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: isActive ? Colors.white : Colors.grey,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _VizCard extends StatefulWidget {
