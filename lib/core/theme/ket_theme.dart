@@ -59,6 +59,9 @@ class KetTheme {
     fontWeight: FontWeight.w600,
   );
 
+  static TextStyle get descriptionStyle =>
+      GoogleFonts.inter(fontSize: 12, color: textMuted, height: 1.4);
+
   static TextStyle get statusStyle => GoogleFonts.inter(
     fontSize: 11,
     color: Colors.white,

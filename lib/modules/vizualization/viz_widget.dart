@@ -143,22 +143,20 @@ class _VizualizationWidgetState extends State<VizualizationWidget> {
 
     final events = currentSession.events;
 
-    // Tushuntirish: Hammasini bittada ko'rsatib "tizib" yubormaslik uchun,
-    // har bir turdagi eng oxirgi eventni olamiz.
-    // Bu orqali VQE charti bitta joyda "o'ynaydi" (animatsiya bo'ladi).
+    // To prevent the UI from being overwhelmed by many similar events,
+    // we group by type and only show the latest event for most types.
+    // However, some types like 'text' might be better as a list,
+    // but for now, we follow the "latest-per-type" pattern consistently.
     final Map<VizType, VizEvent> latestEvents = {};
     for (var e in events) {
-      if (e.type != VizType.inspector &&
-          e.type != VizType.text &&
-          e.type != VizType.error &&
-          e.type != VizType.metrics &&
-          e.type != VizType.estimator &&
-          e.type != VizType.none) {
+      if (e.type != VizType.none && e.type != VizType.error) {
         latestEvents[e.type] = e;
       }
     }
 
     final displayList = latestEvents.values.toList();
+    // Sort by timestamp to keep chronological order even if grouped
+    displayList.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     if (displayList.isEmpty) {
       if (status == VizStatus.running) {

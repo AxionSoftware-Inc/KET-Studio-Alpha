@@ -16,8 +16,11 @@ class PackageDialog extends StatelessWidget {
             message: "Refresh versions",
             child: IconButton(
               icon: const Icon(FluentIcons.refresh, size: 14),
-              onPressed: () =>
-                  PythonSetupService().checkAndInstallDependencies(),
+              onPressed: PythonSetupService().isBusy
+                  ? null
+                  : () => PythonSetupService().checkAndInstallDependencies(
+                      force: true,
+                    ),
             ),
           ),
         ],
@@ -33,9 +36,17 @@ class PackageDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Manage your quantum environment libraries and dependencies.",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                setup.isBusy
+                    ? "Operations in progress... Please wait."
+                    : "Manage your quantum environment libraries and dependencies.",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: setup.isBusy ? KetTheme.accent : Colors.grey,
+                  fontWeight: setup.isBusy
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
               ),
               const SizedBox(height: 16),
               Flexible(
@@ -45,7 +56,7 @@ class PackageDialog extends StatelessWidget {
                       final name = lib.split('[').first;
                       final version = setup.packageVersions[name];
                       final isInstalled = version != null;
-                      final isBusy =
+                      final isCurrentTask =
                           setup.currentTask.value?.contains(name) ?? false;
 
                       return Container(
@@ -59,7 +70,7 @@ class PackageDialog extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
-                            if (isBusy)
+                            if (isCurrentTask)
                               const Padding(
                                 padding: EdgeInsets.only(right: 12),
                                 child: SizedBox(
@@ -94,12 +105,12 @@ class PackageDialog extends StatelessWidget {
                                   Text(
                                     isInstalled
                                         ? "Version: $version"
-                                        : (isBusy
+                                        : (isCurrentTask
                                               ? "Installing..."
                                               : "Not installed"),
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: isBusy
+                                      color: isCurrentTask
                                           ? KetTheme.accent
                                           : Colors.grey,
                                     ),
@@ -107,12 +118,14 @@ class PackageDialog extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            if (!isInstalled && !isBusy)
+                            if (!isInstalled && !isCurrentTask)
                               Button(
                                 child: const Text("Install"),
-                                onPressed: () => setup.installPackage(lib),
+                                onPressed: setup.isBusy
+                                    ? null
+                                    : () => setup.installPackage(lib),
                               )
-                            else if (isBusy)
+                            else if (isCurrentTask)
                               const Text(
                                 "Busy",
                                 style: TextStyle(

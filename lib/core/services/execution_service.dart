@@ -42,53 +42,60 @@ class ExecutionService {
       // Only decode a few at a time to keep UI responsive
       final take = _vizJsonQueue.length > 5 ? 5 : _vizJsonQueue.length;
       for (int i = 0; i < take; i++) {
-        final jsonStr = _vizJsonQueue[i];
-        try {
-          final msg = jsonDecode(jsonStr) as Map<String, dynamic>;
-          String kind0 = (msg['kind'] ?? msg['type'] ?? "")
-              .toString()
-              .toLowerCase();
-          final payload = msg['payload'] ?? msg['data'];
-
-          if (kind0 == "quantum" || kind0 == "histogram") kind0 = "histogram";
-          if (kind0 == "plot" || kind0 == "chart") kind0 = "chart";
-
-          final type = VizType.values.firstWhere(
-            (e) => e.name == kind0.trim(),
-            orElse: () => VizType.none,
-          );
-
-          if (type != VizType.none) {
-            TerminalService().write("📡 Captured: ${type.name}"); // DEBUG
-
-            // Fix relative image paths
-            if (type == VizType.image || type == VizType.circuit) {
-              String? path = (payload is Map)
-                  ? payload['path']
-                  : payload.toString();
-              if (path != null &&
-                  !File(path).isAbsolute &&
-                  _currentProjectDir != null) {
-                if (payload is Map) {
-                  payload['path'] = "$_currentProjectDir/$path";
-                }
-              }
-            }
-
-            // Safety: Limit Inspector data size
-            if (type == VizType.inspector && payload is Map) {
-              final frames = payload['frames'];
-              if (frames is List && frames.length > 100) {
-                payload['frames'] = frames.sublist(0, 100);
-              }
-            }
-            VizService().updateData(type, payload);
-          }
-        } catch (_) {}
+        _processVizMessage(_vizJsonQueue[i]);
       }
       _vizJsonQueue.removeRange(0, take);
       if (_vizJsonQueue.isNotEmpty) _scheduleVizFlush();
     });
+  }
+
+  void _processVizMessage(String jsonStr) {
+    try {
+      final msg = jsonDecode(jsonStr) as Map<String, dynamic>;
+      String kind0 = (msg['kind'] ?? msg['type'] ?? "")
+          .toString()
+          .toLowerCase();
+      final payload = msg['payload'] ?? msg['data'];
+
+      if (kind0 == "quantum" || kind0 == "histogram") kind0 = "histogram";
+      if (kind0 == "plot" || kind0 == "chart") kind0 = "chart";
+
+      final type = VizType.values.firstWhere(
+        (e) => e.name == kind0.trim(),
+        orElse: () => VizType.none,
+      );
+
+      if (type != VizType.none) {
+        // Fix relative image paths
+        if (type == VizType.image || type == VizType.circuit) {
+          String? path = (payload is Map)
+              ? payload['path']
+              : payload.toString();
+          if (path != null &&
+              !File(path).isAbsolute &&
+              _currentProjectDir != null) {
+            if (payload is Map) {
+              payload['path'] = "$_currentProjectDir/$path";
+            }
+          }
+        }
+
+        // Safety: Limit Inspector data size
+        if (type == VizType.inspector && payload is Map) {
+          final frames = payload['frames'];
+          if (frames is List && frames.length > 100) {
+            payload['frames'] = frames.sublist(0, 100);
+          }
+        }
+        VizService().updateData(type, payload);
+      }
+    } catch (_) {}
+  }
+
+  void _flushVizInstant() {
+    while (_vizJsonQueue.isNotEmpty) {
+      _processVizMessage(_vizJsonQueue.removeAt(0));
+    }
   }
 
   // CRITICAL: Clean malformed UTF-16 (lone surrogates) which cause crashes in Flutter/SelectableText
@@ -265,10 +272,16 @@ except Exception:
 
       final exitCode = await _process!.exitCode;
       _flushTimer?.cancel();
-      _vizTimer?.cancel();
+
+      // Final Terminal Flush
       if (_terminalLines.isNotEmpty) {
         terminal.writeLines(List<String>.from(_terminalLines));
+        _terminalLines.clear();
       }
+
+      // CRITICAL: Final Viz Flush - don't lose data if process ends quickly
+      _flushVizInstant();
+      _vizTimer?.cancel();
 
       VizService().endSession(
         exitCode: exitCode,

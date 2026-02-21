@@ -13,6 +13,9 @@ class PythonSetupService extends ChangeNotifier {
   bool _isSetupComplete = false;
   bool get isSetupComplete => _isSetupComplete;
 
+  bool _isBusy = false;
+  bool get isBusy => _isBusy;
+
   final ValueNotifier<String?> currentTask = ValueNotifier<String?>(null);
   final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
 
@@ -50,8 +53,12 @@ class PythonSetupService extends ChangeNotifier {
     return null;
   }
 
-  Future<void> checkAndInstallDependencies() async {
-    if (_isSetupComplete) return;
+  Future<void> checkAndInstallDependencies({bool force = false}) async {
+    if (_isSetupComplete && !force) return;
+    if (_isBusy) return;
+
+    _isBusy = true;
+    notifyListeners();
 
     final terminal = TerminalService();
     terminal.write("--- INTERNAL ENVIRONMENT SETUP ---");
@@ -126,7 +133,7 @@ class PythonSetupService extends ChangeNotifier {
         if (checkResult.exitCode != 0) {
           _packageVersions[libName] = null;
           // Only auto-install core libraries if missing
-          if (coreLibraries.contains(libFull)) {
+          if (coreLibraries.any((c) => c.startsWith(libName))) {
             terminal.write("Installing core: $libName...");
             await Process.run(pythonExec, [
               '-m',
@@ -192,6 +199,7 @@ except Exception as e:
       terminal.write("FATAL ERROR: $e");
     } finally {
       currentTask.value = null;
+      _isBusy = false;
       notifyListeners();
     }
   }
@@ -209,38 +217,45 @@ except Exception as e:
   }
 
   Future<void> installPackage(String name) async {
-    final appDir = await getApplicationSupportDirectory();
-    final venvPath = p.join(appDir.path, 'ket_venv');
-    final isWindows = Platform.isWindows;
-    final pythonExec = isWindows
-        ? p.join(venvPath, 'Scripts', 'python.exe')
-        : p.join(venvPath, 'bin', 'python');
+    if (_isBusy) return;
+    _isBusy = true;
+    notifyListeners();
 
-    currentTask.value = "Installing $name...";
-    TerminalService().write("Installing $name via pip...");
+    try {
+      final appDir = await getApplicationSupportDirectory();
+      final venvPath = p.join(appDir.path, 'ket_venv');
+      final isWindows = Platform.isWindows;
+      final pythonExec = isWindows
+          ? p.join(venvPath, 'Scripts', 'python.exe')
+          : p.join(venvPath, 'bin', 'python');
 
-    final result = await Process.run(pythonExec, [
-      '-m',
-      'pip',
-      'install',
-      name,
-    ]);
-    if (result.exitCode == 0) {
-      TerminalService().write("✅ Successfully installed $name");
-      // Update version
-      final check = await Process.run(pythonExec, [
+      currentTask.value = "Installing $name...";
+      TerminalService().write("Installing $name via pip...");
+
+      final result = await Process.run(pythonExec, [
         '-m',
         'pip',
-        'show',
-        name.split('[').first,
+        'install',
+        name,
       ]);
-      _packageVersions[name.split('[').first] = _parseVersion(
-        check.stdout.toString(),
-      );
-    } else {
-      TerminalService().write("❌ Failed to install $name: ${result.stderr}");
+      if (result.exitCode == 0) {
+        TerminalService().write("✅ Successfully installed $name");
+        // Update version
+        final libBaseName = name.split('[').first;
+        final check = await Process.run(pythonExec, [
+          '-m',
+          'pip',
+          'show',
+          libBaseName,
+        ]);
+        _packageVersions[libBaseName] = _parseVersion(check.stdout.toString());
+      } else {
+        TerminalService().write("❌ Failed to install $name: ${result.stderr}");
+      }
+    } finally {
+      currentTask.value = null;
+      _isBusy = false;
+      notifyListeners();
     }
-    currentTask.value = null;
-    notifyListeners();
   }
 }

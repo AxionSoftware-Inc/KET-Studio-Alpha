@@ -1,113 +1,116 @@
 <p align="center">
-  <img src="assets/logo.png" width="140" />
+  <img src="assets/logo.png" width="160" />
 </p>
 
 <h1 align="center">KET Studio</h1>
 
 <p align="center">
-  A structured Quantum Development IDE with an Event-Driven Visualization Engine
+  <b>Kvant hisoblash va ilmiy vizualizatsiya uchun professional Event-Driven IDE</b>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Platform-Windows-blue" />
-  <img src="https://img.shields.io/badge/Version-v0.2.0--alpha-orange" />
-  <img src="https://img.shields.io/badge/License-MIT-green" />
-  <img src="https://img.shields.io/badge/Status-Active%20Development-purple" />
+  <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge&logo=windows" />
+  <img src="https://img.shields.io/badge/Version-v0.2.0--alpha-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Language-Python%20%7C%20Dart-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Status-Active%20Development-purple?style=for-the-badge" />
 </p>
 
 ---
 
-## 🚀 Overview
+## 🚀 Loyiha Haqida
 
-**KET Studio** is a professional native desktop IDE designed for quantum computing research and development. It provides a unified workflow by bridging the gap between raw code execution and high-fidelity visualization.
+**KET Studio** — bu kvant hisoblash tadqiqotlari va ilmiy dasturlash uchun maxsus ishlab chiqilgan professional ishchi muhit (IDE). U kod yozish va natijani ko'rish jarayonini uzviy bog'lab, real vaqt rejimida yuqori sifatli vizualizatsiya hamda sessiyalar tarixini boshqarish imkonini beradi.
 
-**The Workflow:**
-`Run Script` → `Stream Events` → `Structured Visualization` → `Session History`
-
----
-
-## ✨ Core Features
-
-### 🧠 Modern IDE Infrastructure
-- **Command-Based Architecture**: Business logic is decoupled from the UI for stability.
-- **Fluent Design**: A clean, Windows-native interface inspired by modern professional tools.
-- **Project Explorer**: Effortless file management and session tracking.
-
-### 📊 Visualization Engine
-KET Studio treats visualization as a first-class citizen. Instead of just reading text logs, the IDE renders rich graphical components dynamically.
-
-- **Deterministic States**: `Idle → Running → HasOutput → Error → Stopped`.
-- **Event Timeline**: Every visualization event is timestamped and stored in the session history.
-- **Multi-Type Rendering**: Support for Bloch spheres, matrices, charts, and dashboards.
+Dastur shunchaki matnli loglarni o'qish bilan cheklanib qolmay, kodingizdan kelayotgan ma'lumotlarni interaktiv grafiklar, matritsalar va jadvallar ko'rinishida taqdim etadi.
 
 ---
 
-## 🔬 Visualization System (How it Works)
+## 🧠 Dastur Qanday Ishlaydi?
 
-KET Studio supports three ways to visualize data, making it compatible with both existing code and new research.
+KET Studio **Event-Driven (Voqealarga asoslangan)** arxitektura tamoyili asosida ishlaydi. 
 
-### 1. Automatic Interception (No code change)
-If your script uses `matplotlib`, KET Studio automatically intercepts `plt.show()`.
-- **Works with:** `matplotlib.pyplot`, `qiskit.visualization` (circuit drawings).
-- **Benefit:** You don't need to modify your scientific code to see results in the IDE panel.
+1. **Ijro (Execution):** Siz yozgan Python kodi alohida jarayon (process) sifatida ishga tushadi.
+2. **Kuzatuv (Interception):** IDE kodingizdan chiqayotgan `stdout` (standard chiqish) oqimini real vaqtda kuzatib boradi.
+3. **Protokol:** Agar kodingizda maxsus `KET_VIZ` prefiksi bilan boshlangan JSON xabarlar paydo bo'lsa, IDE ularni "vizualizatsiya voqeasi" sifatida taniydi.
+4. **Rendering:** Olingan ma'lumotlar vizualizatsiya panelida mos komponent (Gistogramma, Heatmap, Text va h.k.) orqali chizib beriladi.
 
-### 2. The `ket_viz` Helper (Auto-Injected)
-When you run a script, KET Studio injects a `ket_viz.py` module into your project directory. You can use it for structured data:
+---
+
+## 🛠 Nimaga Asoslangan?
+
+Dastur eng zamonaviy texnologiyalar yig'indisidan tashkil topgan:
+
+*   **Frontend (UI):** [Flutter](https://flutter.dev/) (Dart) — Yuqori samaradorlik va Windows platformasida "native" interfeys tajribasi.
+*   **Backend (Engine):** [Python 3.10+](https://www.python.org/) — Ilmiy hisoblashlar va kvant algoritmlarini bajarish uchun asosiy vosita.
+*   **Ma'lumotlar oqimi:** Stream-based terminal emulation va asynchronous JSON processing.
+*   **Dizayn:** Microsoft Fluent Design tizimiga asoslangan interfeys.
+
+---
+
+## 📊 Vizualizatsiya Paneliga Ma'lumot Uzatish
+
+Dastur kodingizdan panelga ma'lumot uzatishning uch xil professional usulini taqdim etadi:
+
+### 1. `ket_viz` Modulidan Foydalanish (Tavsiya etiladi)
+IDE kodingiz ishga tushishi bilan loyiha papkasiga virtual `ket_viz.py` modulini ineksiya qiladi. Undan foydalanish juda oddiy:
 
 ```python
 import ket_viz
 
-# Show a high-fidelity heatmap
-matrix = [[0.1, 0.5], [0.8, 0.2]]
-ket_viz.heatmap(matrix, title="State Density")
+# 1. Gistogramma (Kvant o'lchov natijalari uchun)
+counts = {"00": 480, "01": 20, "10": 30, "11": 494}
+ket_viz.histogram(counts, title="Bell State Results")
 
-# Show a results histogram
-counts = {"00": 512, "11": 512}
-ket_viz.histogram(counts, title="Bell State Measurement")
+# 2. Heatmap (Zichlik matritsalari uchun)
+matrix = [[0.8, 0.1], [0.1, 0.0]]
+ket_viz.heatmap(matrix, title="Density Matrix")
 
-# Display professional tables
-ket_viz.table("Parameters", [["Qubits", 2], ["Shots", 1024]])
+# 3. Professional Jadvallar
+data = [["Parametr", "Qiymat"], ["Qubits", 2], ["Shots", 1024]]
+ket_viz.table("Simulyatsiya Tafsilotlari", data)
 ```
 
-### 3. Raw Protocol (For other languages/tools)
-The IDE listens to `stdout` for a specific protocol. Any tool can trigger a visualization by printing:
-`KET_VIZ {"kind": "text", "payload": {"content": "Hello World"}}`
+### 2. Matplotlib Avtomatik Interfetsiya
+Agar kodingizda `matplotlib.pyplot` ishlatilgan bo'lsa, siz hech qanday kod o'zgartirishingiz shart emas. IDE `plt.show()` komandasini avtomatik ushlab oladi va natijani rasm (image) ko'rinishida panelga chiqaradi.
+
+### 3. Protokol Orqali Uzatish (Raw Protocol)
+Har qanday dasturlash tilidan quyidagi formatda matn chiqarish orqali panelni boshqarish mumkin:
+`KET_VIZ {"kind": "text", "payload": {"content": "Salom Dunyo"}}`
 
 ---
 
-## 📸 Supported Types
-- `text`: Rich text logs.
-- `table`: Structured data grids.
-- `heatmap`: Matrix and density visualizations.
-- `image/circuit`: Static drawings and plot captures.
-- `dashboard`: Combined quantum state views (Histogram + Matrix).
-- `error`: Formatted Python exception displays.
+## 💎 Professional Foydalanish Bo'yicha Ko'rsatmalar
+
+1.  **Python Sozlamalari:**
+    *   `Settings` paneliga o'ting va kompyuteringizdagi Python interpreter yo'lini (`python.exe`) ko'rsating.
+2.  **Kutubxonalar Boshqaruvi:**
+    *   `Help -> Packages` menyusi orqali kerakli kutubxonalarni (`qiskit`, `numpy`, `matplotlib`) to'g'ridan-to'g'ri IDE orqali o'rnating.
+3.  **Loyiha Strukturasi:**
+    *   Loyihangizda `.py` faylini yarating.
+    *   Kodingizda vizualizatsiya funksiyalaridan foydalaning.
+    *   `Run` tugmasini bosing va o'ng tarafdagi **Visualization** panelida natijalarni kuzating.
+4.  **Tarixni Kuzatish:**
+    *   Har bir kod ijrosi alohida sessiya sifatida saqlanadi. Panelning chap tarafidagi tarix tugmasi orqali avvalgi natijalarga qaytishingiz mumkin.
 
 ---
 
-## 💾 Installation & Requirements
+## 📋 Qo'llab-quvvatlanadigan Vizualizatsiya Turlari
 
-### Windows (Alpha)
-1. Download the latest release ZIP.
-2. Extract to a preferred folder.
-3. Run `KETStudio.exe`.
-
-### Prerequisites
-- **Python 3.10+** (Added to PATH).
-- **Recommended Libraries**: `qiskit`, `matplotlib`, `numpy`.
-
----
-
-## 🛣 Roadmap
-- [x] Event-Driven Visualization Engine.
-- [x] Session History & Navigation.
-- [x] Modern Fluent UI Interface.
-- [ ] **Alpha+**: Integrated Dependency Manager (pip auto-setup).
-- [ ] **Beta**: Command Palette (Ctrl+Shift+P) & Plugin SDK.
+*   **`text`**: Boyitilgan matnli loglar.
+*   **`table`**: Ma'lumotlar jadvali.
+*   **`heatmap`**: Matritsa va issiqlik xaritalari.
+*   **`histogram`**: Statistik taqsimotlar.
+*   **`image/circuit`**: Chizmalar, plots va sxemalar.
+*   **`metrics`**: Real vaqt rejimida o'zgaruvchi ko'rsatkichlar.
+*   **`error`**: Python xatolarining chiroyli va tushunarli ko'rinishi.
 
 ---
 
-## 📜 License
-MIT License - Developed for the Quantum Computing Ecosystem.
+## 📜 Litsenziya
 
-<p align="center"> Building a stronger Quantum Development Ecosystem. </p>
+MIT Litsenziyasi ostida tarqatiladi. KET Studio kvant ekotizimini rivojlantirish uchun ochiq manbali loyiha hisoblanadi.
+
+---
+<p align="center"> 
+  <b>KET Studio — Kvant kelajagi sari intiluvchan muhandislar tanlovi.</b> 
+</p>
